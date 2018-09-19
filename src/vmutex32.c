@@ -4,8 +4,6 @@
 
 #define VMUTEX32_STATE_FREE     0u
 
-typedef volatile uint32_t vmutex32_t;
-
 void vmutex32_init(vmutex32_t *const mutex_ptr) {
     *mutex_ptr = VMUTEX32_STATE_FREE;
 }

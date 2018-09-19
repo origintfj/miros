@@ -5,6 +5,7 @@
 
 #define ROM_BASE_ADDR               0x00000000
 #define SRAM_BASE_ADDR              0x40000000
+#define SRAM_END_ADDR               0x40040000
 
 #define UART_BASE_ADDR              0x80000000
 #define UART_DATA_OFFSET            0

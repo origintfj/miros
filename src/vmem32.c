@@ -12,6 +12,8 @@
 #define VMEM32_PAGE_SZB         (1 << VMEM32_PAGE_SZBX)
 #define VMEM32_PAGE_SZB_MASK    (VMEM32_PAGE_SZB - 1)
 
+#include <uart.h>
+
 vmutex32_t table_mutex;
 
 uint32_t mpool_start;
@@ -27,15 +29,22 @@ inline void mark_page(uint32_t const page, uint32_t const value) {
 inline uint32_t const get_page(uint32_t const page) {
     return (((uint32_t *const)mpool_start)[page >> 5] >> (page & 0x1f)) & 1;
 }
-void vmem32_init(uint32_t const first_byte, uint32_t const last_byte) {
+void vmem32_dump_table(void) {
+    int i;
+
+    for (i = 0; i < (mpool_szp >> 5) + (mpool_szp & 0x1f ? 1 : 0); ++i) {
+        printf("%X%c", ((uint32_t const *const)mpool_start)[i], ((i + 1) & 0x7 ? ' ' : '\n'));
+    }
+}
+void vmem32_init(uint8_t *const first_byte, uint8_t *const last_byte) {
     uint32_t remainder;
     uint32_t table_szw;
     uint32_t table_szp;
     uint32_t i;
 
-    remainder   = first_byte & VMEM32_PAGE_SZB_MASK;
-    mpool_start = (first_byte & ~VMEM32_PAGE_SZB_MASK) + (remainder ? VMEM32_PAGE_SZB : 0);
-    mpool_szp   = (last_byte + 1 - mpool_start) >> VMEM32_PAGE_SZBX;
+    remainder   = (uint32_t const)first_byte & VMEM32_PAGE_SZB_MASK;
+    mpool_start = ((uint32_t const)first_byte & ~VMEM32_PAGE_SZB_MASK) + (remainder ? VMEM32_PAGE_SZB : 0);
+    mpool_szp   = ((uint32_t const)last_byte + 1 - mpool_start) >> VMEM32_PAGE_SZBX;
 
     remainder = mpool_szp & 0x1f;
     table_szw = (mpool_szp >> 5) + (remainder ? 1 : 0);
@@ -81,7 +90,7 @@ void *const vmem32_alloc(size_t const n_bytes) {
             }
         }
 
-        i += page_count;
+        i += page_count + 1;
     }
     vmutex32_unlock(&table_mutex);
 
