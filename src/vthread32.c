@@ -46,7 +46,7 @@ void *const vthread32_cleanup_deamon(void *const arg) {
     //printf("Starting cleanup deamon-----------.\n");
     while (1) {
         while (dead_thread == VMEM32_NULL);
-        printf("Running cleanup on thread 0x%X.\n", (uint32_t const)dead_thread);
+        //printf("Running cleanup on thread 0x%X.\n", (uint32_t const)dead_thread);
         vmem32_free(dead_thread->container);
         vmem32_free(dead_thread);
         dead_thread = VMEM32_NULL;

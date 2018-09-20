@@ -15,7 +15,8 @@ SRC_FILES := 				\
 	src/vthread32.c			\
 	src/vmem32.c			\
 	src/uart.c				\
-	src/boot.c
+	src/boot.c				\
+	src/shell.c
 OBJ_FILES := 				\
 	entry.o					\
 	vmutex32.o				\
@@ -23,7 +24,8 @@ OBJ_FILES := 				\
 	vthread32.o				\
 	vmem32.o				\
 	uart.o					\
-	boot.o
+	boot.o					\
+	shell.o
 
 build:
 	$(CC) $(SRC_FILES) $(CC_OPTIONS) -c

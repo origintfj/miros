@@ -55,45 +55,13 @@ void *const gpio_time(void *const arg) {
     }
     return NULL;
 }
-void *const thread1(void *const arg) {
-    int i;
 
-    for (i = 0; i < 100000; ++i) {
-        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
-        //printf("in thread 1.\n");
-    }
-}
-void *const thread2(void *const arg) {
-    int i;
-
-    for (i = 0; i < 100000; ++i) {
-        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
-        //printf("in thread 2.\n");
-    }
-}
-void *const thread3(void *const arg) {
-    int i;
-
-    for (i = 0; i < 100000; ++i) {
-        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
-        //printf("in thread 3.\n");
-    }
-}
+void *const shell(void *const arg);
 
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
-    vthread32_create(thread1, NULL, 1024u, 0x1880);
-    vthread32_create(thread2, NULL, 1024u, 0x1880);
-    vthread32_create(thread3, NULL, 1024u, 0x1880);
-
-    vmem32_dump_table();
-    printf("\n");
-
-    while (time_us() < 1000000);
-
-    vmem32_dump_table();
-    printf("\n");
+    vthread32_create(shell, NULL, 1024u, 0x1880);
 
     return NULL;
 }
