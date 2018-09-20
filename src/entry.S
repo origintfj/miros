@@ -8,9 +8,9 @@ _entry:
     li      sp,         RAM_END_ADDR
     addi    sp,         sp,     -4
     # set the m-mode trap vector
-1:	auipc   t0,         %pcrel_hi(vector_table)
+1:	auipc   t0,         %pcrel_hi(vthread32_mtrap_handler)
 	addi    t0,         t0,     %pcrel_lo(1b)
-    ori     t0,         t0,     1
+    #ori     t0,         t0,     1 # uncomment for vectored trap mode
     csrw    mtvec,      t0
     # initalise the GOT
 1:	auipc   a0,         %pcrel_hi(_got_start)
@@ -36,26 +36,3 @@ _entry:
     j       1b
     # jump to the boot function in m-mode with interrupts enabled globaly
 1:  j       boot
-
-1:	auipc   t0,         %pcrel_hi(boot)
-  	addi    t0,         t0,     %pcrel_lo(1b)
-    csrw    mepc,       t0
-    li      t0,         0x1880
-    csrw    mstatus,    t0
-    csrw    mie,        0
-    mret
-
-.section .text
-vector_table:
-    j       trap_usip_excp
-    j       trap_ssip
-    mret
-    j       trap_msip
-    j       trap_utip
-    j       trap_stip
-    mret
-    j       vthread32_mtrap_handler
-    j       trap_ueip
-    j       trap_seip
-    mret
-    j       trap_meip

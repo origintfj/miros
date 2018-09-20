@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <soc.h>
 #include <common.h>
 #include <uart.h>
@@ -10,22 +11,15 @@ extern uint8_t _mpool_start[];
 
 uint64_t volatile systime_us;
 
-void *const boot_thread(void *const arg) {
-    printf("In boot_thread.\n");
-    return NULL;
+uint64_t const time_us(void) {
+    return systime_us;
 }
 
-extern uint32_t const _got_start[];
-extern uint32_t const _got_end[];
+void *const boot_thread(void *const arg);
 
 void boot(void) {
     int error;
     uint32_t const *i;
-
-    printf("GOT (%X-%X:\n", _got_start, _got_end);
-    for (i = _got_start; i < _got_end; ++i) {
-        printf("%X: %X\n", i, *i);
-    }
 
     printf("MiROS\n\n");
 
@@ -40,48 +34,78 @@ void boot(void) {
 
 
     // initialise dynamic memory allocation
-    printf("mpool start = 0x%X\n", (uint32_t const)_mpool_start);
+    printf("Initalising dynamic memory allocation...");
     vmem32_init(_mpool_start, (uint8_t *const)(SRAM_END_ADDR - 1));
-
-    vmem32_dump_table();
-    printf("\n");
+    printf("Done!\n");
 
     printf("Initialising multi-threading...");
     error = vthread32_init(boot_thread, NULL, STACK_SZW, STACK_SZW);
     printf("Done! (%i)\n", error);
-    __asm__ volatile ("csrw mstatus, 0x8" ::: "memory");
-    printf("Done! (%i)\n", error);
+    VTHREAD32_HANDOFF
+
+    __builtin_unreachable();
+}
+
+void *const gpio_time(void *const arg) {
+    uint64_t systime;
+
+    while (1) {
+        systime = time_us();
+        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, systime);
+    }
+    return NULL;
+}
+void *const thread1(void *const arg) {
+    int i;
+
+    for (i = 0; i < 100000; ++i) {
+        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
+        //printf("in thread 1.\n");
+    }
+}
+void *const thread2(void *const arg) {
+    int i;
+
+    for (i = 0; i < 100000; ++i) {
+        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
+        //printf("in thread 2.\n");
+    }
+}
+void *const thread3(void *const arg) {
+    int i;
+
+    for (i = 0; i < 100000; ++i) {
+        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, i); // 100us
+        //printf("in thread 3.\n");
+    }
+}
+
+void *const boot_thread(void *const arg) {
+    printf("In boot_thread.\n");
+    vthread32_create(gpio_time, NULL, 1024u, 0x1880);
+    vthread32_create(thread1, NULL, 1024u, 0x1880);
+    vthread32_create(thread2, NULL, 1024u, 0x1880);
+    vthread32_create(thread3, NULL, 1024u, 0x1880);
 
     vmem32_dump_table();
     printf("\n");
 
-    //while (1) printf("%i\n", 23876423);
+    while (time_us() < 1000000);
 
-    while (1); printf(".");
+    vmem32_dump_table();
+    printf("\n");
+
+    return NULL;
 }
 
-void trap_usip_excp(void) {
-    printf("Possible Exception!\n");
-    while (1);
-}
-void trap_ssip(void) {
-}
-void trap_msip(void) {
-}
-void trap_utip(void) {
-}
-void trap_stip(void) {
-}
-void trap_mtip(void) {
+void mtrap_handler(void) {
+    uint32_t mcause;
+
+    __asm__ volatile ("csrr %0, mcause" : "=r"(mcause) :: "memory");
+
     systime_us += 100;
 
     vthread32_switch();
 
     write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
-}
-void trap_ueip(void) {
-}
-void trap_seip(void) {
-}
-void trap_meip(void) {
 }

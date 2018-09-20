@@ -7,10 +7,9 @@ SECTIONS
     . = ALIGN(4);
     _got_start = .;
     .got                     : { *(.got) }
-    .got.plt        ALIGN(4) : { *(.got.plt) }
-    . = ALIGN(4);
     _got_end = .;
-    .text          ALIGN(64) : { *(.vector_table) }
+    .got.plt        ALIGN(4) : { *(.got.plt) }
+    .text           ALIGN(4) : { *(.mtvec) }
     .text           ALIGN(4) : { *(.text*) }
     .data           ALIGN(4) : { *(.data) }
     .rodata         ALIGN(4) : { *(.rodata*) }

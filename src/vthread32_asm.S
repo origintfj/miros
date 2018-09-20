@@ -1,5 +1,5 @@
 .globl vthread32_mtrap_handler
-.section .text
+.section .mtvec
 vthread32_mtrap_handler:
     add     sp,     sp,         -120
     //x0
@@ -35,7 +35,7 @@ vthread32_mtrap_handler:
     sw      t5,     112(sp)
     sw      t6,     116(sp)
     csrrw   sp,     mscratch,   sp
-    jal     ra,     trap_mtip
+    jal     ra,     mtrap_handler
     csrrw   sp,     mscratch,   sp
     //x0
     lw      ra,     0(sp)
