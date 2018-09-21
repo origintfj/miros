@@ -172,6 +172,9 @@ void vthread32_switch(void) {
 
     // remove the finished thread (if any) from the ring
     if (finished_thread != VMEM32_NULL && dead_thread == VMEM32_NULL) {
+        if (finished_thread == active_thread) {
+            active_thread = active_thread->next;
+        }
         dead_thread = finished_thread;
         finished_thread = VMEM32_NULL;
         dead_thread->previous->next = dead_thread->next;
