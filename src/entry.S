@@ -10,7 +10,7 @@ _entry:
     # set the m-mode trap vector
 1:	auipc   t0,         %pcrel_hi(vthread32_mtrap_handler)
 	addi    t0,         t0,     %pcrel_lo(1b)
-    #ori     t0,         t0,     1 # uncomment for vectored trap mode
+    #ori     t0,         t0,     1
     csrw    mtvec,      t0
     # initalise the GOT
 1:	auipc   a0,         %pcrel_hi(_got_start)
@@ -36,3 +36,24 @@ _entry:
     j       1b
     # jump to the boot function in m-mode with interrupts enabled globaly
 1:  j       boot
+
+.section .vector_table
+vectors:
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       vthread32_mtrap_handler
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+    j       _trap_usip_excp
+
+_trap_usip_excp:
+    csrrw   sp,     mscratch,   sp
+    jal     trap_usip_excp
+    csrrw   sp,     mscratch,   sp
+    mret

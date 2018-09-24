@@ -6,11 +6,24 @@
 
 #define VTHREAD32_CONTEXT_SZW   30
 
+struct sysjob {
+    uint32_t job_id;
+    void const *input;
+    void *output;
+    //
+    struct sysjob *previous;
+    struct sysjob *next;
+};
+typedef struct sysjob sysjob_t;
+
 struct thread_info {
     void *container;
     uint32_t mstatus;
     uint32_t mepc;
     uint32_t const *stack_base_ed;
+    //
+    sysjob_t *job_list;
+    sysjob_t *job_list_last;
     //
     struct thread_info *previous;
     struct thread_info *next;
@@ -94,6 +107,9 @@ int const vthread32_init(void *const(*thread)(void *const),
     thread_ring->mepc          = (uint32_t const)thread;
     thread_ring->stack_base_ed = thread_stack_base_ed;
     //
+    thread_ring->job_list      = VMEM32_NULL;
+    thread_ring->job_list_last = VMEM32_NULL;
+    //
     thread_ring->previous = thread_ring;
     thread_ring->next     = thread_ring;
 
@@ -111,6 +127,9 @@ int const vthread32_init(void *const(*thread)(void *const),
     vthread32_create(vthread32_cleanup_deamon, NULL, 1024u, 0x1880);
 
     return 0;
+}
+thread_handle_t const vthread32_get_active(void) {
+    return active_thread;
 }
 thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                        unsigned const stack_szw, uint32_t const mstatus) {
@@ -139,6 +158,9 @@ thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
     temp_thread->stack_base_ed = thread_stack_base_ed;
+    //
+    temp_thread->job_list      = VMEM32_NULL;
+    temp_thread->job_list_last = VMEM32_NULL;
 
     vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
     while (new_thread != VMEM32_NULL);

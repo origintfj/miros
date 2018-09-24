@@ -35,6 +35,7 @@ vthread32_mtrap_handler:
     sw      t5,     112(sp)
     sw      t6,     116(sp)
     csrrw   sp,     mscratch,   sp
+    csrr    a1,     mcause
     jal     ra,     mtrap_handler
     csrrw   sp,     mscratch,   sp
     //x0

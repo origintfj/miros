@@ -28,7 +28,8 @@ void boot(void) {
     write_reg(TIMER0_BASE_ADDR + TIMER0_MAX_OFFSET, CLK_FREQ / 10000 - 1); // 100us
     write_reg(TIMER0_BASE_ADDR + TIMER0_TIME_OFFSET, 0);
     write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
-    write_reg(TIMER0_BASE_ADDR + TIMER0_CTRL_OFFSET, TIMER0_CTRL_EN_MASK | TIMER0_CTRL_INT_EN_MASK);
+    write_reg(TIMER0_BASE_ADDR + TIMER0_CTRL_OFFSET,
+              TIMER0_CTRL_EN_MASK | TIMER0_CTRL_INT_EN_MASK);
     // enable the m-timer interrupt
     __asm__ volatile ("li t0, 0x80; csrs mie, t0" ::: "t0", "memory");
 
@@ -66,14 +67,24 @@ void *const boot_thread(void *const arg) {
     return NULL;
 }
 
-void mtrap_handler(void) {
-    uint32_t mcause;
-
-    __asm__ volatile ("csrr %0, mcause" : "=r"(mcause) :: "memory");
-
-    systime_us += 100;
-
-    vthread32_switch();
-
-    write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
+void trap_usip_excp(void) {
+    printf("Possible exception.\n");
+    while(1);
+    __builtin_unreachable();
+}
+void mtrap_handler(void *const argv, int32_t const mcause) {
+    if (mcause < 0) { // interrupr
+        if ((mcause & 0xf) == 7) { // mtip
+            systime_us += 100;
+            vthread32_switch();
+            write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
+        }
+    } else { // exception
+        __asm__ volatile ("csrr t0, mepc; addi t0, t0, 4; csrw mepc, t0" ::: "t0", "memory");
+        vthread32_append_job(vthread32_get_active(), argv);
+        if (mcause == 11) { // m-ecall
+        } else if (mcause == 9) { // s-ecall
+        } else if (mcause == 8) { // u-ecall
+        }
+    }
 }
