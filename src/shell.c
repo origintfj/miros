@@ -12,22 +12,41 @@ char const *arg_list[BUFFER_SZB];
 #include <vmem32.h>
 
 void *const malloc(size_t const szb) {
-    sysjob_t volatile sysjob_malloc;
-    uint32_t size_bytes;
+    uint32_t request_form[2];
 
-    size_bytes = (uint32_t const)szb;
+    request_form[0] = 0;
+    request_form[1] = (uint32_t const)szb;
 
-    sysjob_malloc->job_id = 0;
-    sysjob_malloc->complete = 0;
-    sysjob_malloc->input  = &size_bytes;
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&request_form) : "a0", "memory");
 
-    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&sysjob_malloc) : "a0", "memory");
-    while (sysjob_malloc->complete == 0);
-
-    return sysjob_malloc->output;
+    return (void *const)(request_form[1]);
 }
 void free(void *const buffer) {
-    vmem32_free(buffer);
+    uint32_t request_form[2];
+
+    request_form[0] = 1;
+    request_form[1] = (uint32_t const)buffer;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&request_form) : "a0", "memory");
+}
+int const strcmp(char const str1[], char const str2[]) {
+    int i;
+    for (i = 0; str1[i] == str2[i] && str1[i] != '\0'; ++i);
+    return str1[i] == str2[i];
+}
+int const run(int const argc, char const *const *argv) {
+    int error = 1;
+
+    if (strcmp(argv[0], "hexdump")) {
+        error = 0;
+
+        if (argc != 1) {
+            printf("\nToo many arguments.\n");
+        } else {
+            // TODO
+        }
+    }
+    return error;
 }
 int const execute(int const argc, char const *const *const argv,
                   char const *const buffer) {
@@ -35,6 +54,7 @@ int const execute(int const argc, char const *const *const argv,
     void *arg_buffer;
     char const **arg_vector;
     int i;
+    int error;
 
     arg_buffer = malloc(BUFFER_SZB + BUFFER_SZB * sizeof(char *));
     //printf("buffer = %X\n", (uint32_t const)arg_buffer);
@@ -53,13 +73,14 @@ int const execute(int const argc, char const *const *const argv,
         arg_vector[i] = argv[i] + (arg_vector - argv);
     }
 
-    // printf("\nExecuting from the arg list (count = %i)\n", argc);
+    //printf("\nExecuting from the arg list (count = %i)\n", argc);
     for (i = 0; i < argc; ++i) {
-        printf("'%s'\n", argv[i]);
+        //printf("'%s'\n", argv[i]);
     }
+    error = run(argc, argv);
 
     free(arg_buffer);
-    return 1;
+    return error;
 }
 
 void print_prompt() {

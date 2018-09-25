@@ -62,7 +62,7 @@ void *const shell(void *const arg);
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
-    vthread32_create(shell, NULL, 1024u, 0x1880);
+    vthread32_create(shell, NULL, 1024u, 0x0080);
 
     return NULL;
 }
@@ -72,7 +72,17 @@ void trap_usip_excp(void) {
     while(1);
     __builtin_unreachable();
 }
-void mtrap_handler(void *const argv, int32_t const mcause) {
+void syscall(uint32_t *const argv) {
+    if (argv[0] == 0) { // malloc
+        argv[1] = (uint32_t const)vmem32_alloc((size_t const)(argv[1]));
+    } else if (argv[0] == 1) { // free
+        vmem32_free((void *const)(argv[1]));
+    }
+}
+void mtrap_handler(uint32_t *const argv, int32_t const mcause) {
+    uint32_t mepc;
+    uint32_t mstatus;
+
     if (mcause < 0) { // interrupr
         if ((mcause & 0xf) == 7) { // mtip
             systime_us += 100;
@@ -80,8 +90,11 @@ void mtrap_handler(void *const argv, int32_t const mcause) {
             write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
         }
     } else { // exception
-        __asm__ volatile ("csrr t0, mepc; addi t0, t0, 4; csrw mepc, t0" ::: "t0", "memory");
-        vthread32_append_job(vthread32_get_active(), argv);
+        __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
+        mepc += 4;
+        syscall(argv);
+        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+
         if (mcause == 11) { // m-ecall
         } else if (mcause == 9) { // s-ecall
         } else if (mcause == 8) { // u-ecall
