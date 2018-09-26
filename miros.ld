@@ -9,7 +9,7 @@ SECTIONS
     .got                     : { *(.got) }
     _got_end = .;
     .got.plt        ALIGN(4) : { *(.got.plt) }
-    .vector_table  ALIGN(64) : { *(.vector_table) }
+    .text          ALIGN(64) : { *(.vector_table) }
     .text           ALIGN(4) : { *(.mtvec) }
     .text           ALIGN(4) : { *(.text*) }
     .data           ALIGN(4) : { *(.data) }

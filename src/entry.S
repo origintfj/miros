@@ -8,9 +8,9 @@ _entry:
     li      sp,         RAM_END_ADDR
     addi    sp,         sp,     -4
     # set the m-mode trap vector
-1:	auipc   t0,         %pcrel_hi(vthread32_mtrap_handler)
+1:	auipc   t0,         %pcrel_hi(vectors)
 	addi    t0,         t0,     %pcrel_lo(1b)
-    #ori     t0,         t0,     1
+    ori     t0,         t0,     1
     csrw    mtvec,      t0
     # initalise the GOT
 1:	auipc   a0,         %pcrel_hi(_got_start)
@@ -39,21 +39,40 @@ _entry:
 
 .section .vector_table
 vectors:
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
     j       vthread32_mtrap_handler
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
-    j       _trap_usip_excp
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
+    .align  2
+    j       1f
 
-_trap_usip_excp:
-    csrrw   sp,     mscratch,   sp
-    jal     trap_usip_excp
-    csrrw   sp,     mscratch,   sp
+1:  addi    sp,     sp,         -8
+    sw      ra,     0(sp)
+    sw      a1,     4(sp)
+    csrr    a1,     mcause
+    bltz    a1,     1f
+    jal     trap_excp
+    j       2f
+1:  jal     trap_usip
+2:  lw      ra,     0(sp)
+    lw      a1,     4(sp)
+    addi    sp,     sp,         8
     mret

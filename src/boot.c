@@ -67,11 +67,6 @@ void *const boot_thread(void *const arg) {
     return NULL;
 }
 
-void trap_usip_excp(void) {
-    printf("Possible exception.\n");
-    while(1);
-    __builtin_unreachable();
-}
 void syscall(uint32_t *const argv) {
     if (argv[0] == 0) { // malloc
         argv[1] = (uint32_t const)vmem32_alloc((size_t const)(argv[1]));
@@ -79,25 +74,42 @@ void syscall(uint32_t *const argv) {
         vmem32_free((void *const)(argv[1]));
     }
 }
-void mtrap_handler(uint32_t *const argv, int32_t const mcause) {
+void trap_excp(uint32_t *const argv, int32_t const mcause) {
     uint32_t mepc;
     uint32_t mstatus;
 
+    if (mcause == 11) { // m-ecall
+        __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
+        mepc += 4;
+        syscall(argv);
+        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+    } else if (mcause == 9) { // s-ecall
+        __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
+        mepc += 4;
+        syscall(argv);
+        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+    } else if (mcause == 8) { // u-ecall
+        __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
+        mepc += 4;
+        syscall(argv);
+        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+    } else {
+        printf("Exception.\n");
+        while(1);
+        __builtin_unreachable();
+    }
+}
+void trap_usip(void) {
+    printf("USIP.\n");
+    while(1);
+    __builtin_unreachable();
+}
+void mtrap_handler(uint32_t *const argv, int32_t const mcause) {
     if (mcause < 0) { // interrupr
         if ((mcause & 0xf) == 7) { // mtip
             systime_us += 100;
             vthread32_switch();
             write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
-        }
-    } else { // exception
-        __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
-        mepc += 4;
-        syscall(argv);
-        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
-
-        if (mcause == 11) { // m-ecall
-        } else if (mcause == 9) { // s-ecall
-        } else if (mcause == 8) { // u-ecall
         }
     }
 }
