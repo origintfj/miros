@@ -34,7 +34,6 @@ _entry:
     sw      zero,       0(a0)
     addi    a0,         a0,     4
     j       1b
-    # jump to the boot function in m-mode with interrupts enabled globaly
 1:  j       boot
 
 .section .vector_table
@@ -42,28 +41,29 @@ vectors:
     .align  2
     j       1f
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       vthread32_mtrap_handler
+    j       vthread32_mtip
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
     .align  2
-    j       1f
+    mret
 
+    .align  2
 1:  addi    sp,     sp,         -8
     sw      ra,     0(sp)
     sw      a1,     4(sp)

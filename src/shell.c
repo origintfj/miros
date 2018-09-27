@@ -1,3 +1,5 @@
+#include <miros.h>
+
 #include <uart.h>
 
 #define BUFFER_SZB      64
@@ -7,33 +9,6 @@ char buffer[BUFFER_SZB];
 int arg_count;
 char const *arg_list[BUFFER_SZB];
 
-
-#include <stddef.h>
-#include <vmem32.h>
-
-void *const malloc(size_t const szb) {
-    uint32_t request_form[2];
-
-    request_form[0] = 0;
-    request_form[1] = (uint32_t const)szb;
-
-    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&request_form) : "a0", "memory");
-
-    return (void *const)(request_form[1]);
-}
-void free(void *const buffer) {
-    uint32_t request_form[2];
-
-    request_form[0] = 1;
-    request_form[1] = (uint32_t const)buffer;
-
-    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&request_form) : "a0", "memory");
-}
-int const strcmp(char const str1[], char const str2[]) {
-    int i;
-    for (i = 0; str1[i] == str2[i] && str1[i] != '\0'; ++i);
-    return str1[i] == str2[i];
-}
 int const run(int const argc, char const *const *argv) {
     int error = 1;
 
@@ -57,7 +32,7 @@ int const execute(int const argc, char const *const *const argv,
     int error;
 
     arg_buffer = malloc(BUFFER_SZB + BUFFER_SZB * sizeof(char *));
-    //printf("buffer = %X\n", (uint32_t const)arg_buffer);
+    //printf("\nbuffer = %X\n", (uint32_t const)arg_buffer);
 
     // set the str_buffer pointer to the start of the arg_buffer
     str_buffer = (char *const)arg_buffer;

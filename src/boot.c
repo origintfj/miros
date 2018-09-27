@@ -67,13 +67,8 @@ void *const boot_thread(void *const arg) {
     return NULL;
 }
 
-void syscall(uint32_t *const argv) {
-    if (argv[0] == 0) { // malloc
-        argv[1] = (uint32_t const)vmem32_alloc((size_t const)(argv[1]));
-    } else if (argv[0] == 1) { // free
-        vmem32_free((void *const)(argv[1]));
-    }
-}
+#include <syscall.h>
+
 void trap_excp(uint32_t *const argv, int32_t const mcause) {
     uint32_t mepc;
     uint32_t mstatus;
@@ -94,7 +89,9 @@ void trap_excp(uint32_t *const argv, int32_t const mcause) {
         syscall(argv);
         __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
     } else {
-        printf("Exception.\n");
+        __asm__ volatile ("csrr %0, mepc" : "=r"(mepc) :: "memory");
+
+        printf("\n[%X] Exception (%u).\n", mepc, mcause);
         while(1);
         __builtin_unreachable();
     }
@@ -104,12 +101,8 @@ void trap_usip(void) {
     while(1);
     __builtin_unreachable();
 }
-void mtrap_handler(uint32_t *const argv, int32_t const mcause) {
-    if (mcause < 0) { // interrupr
-        if ((mcause & 0xf) == 7) { // mtip
-            systime_us += 100;
-            vthread32_switch();
-            write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
-        }
-    }
+void trap_mtip(void) {
+    systime_us += 100;
+    vthread32_switch();
+    write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
 }

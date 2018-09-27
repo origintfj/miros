@@ -14,8 +14,10 @@ SRC_FILES := 				\
 	src/vthread32_asm.S		\
 	src/vthread32.c			\
 	src/vmem32.c			\
+	src/syscall.c			\
 	src/uart.c				\
 	src/boot.c				\
+	src/miros.c				\
 	src/shell.c
 OBJ_FILES := 				\
 	entry.o					\
@@ -23,8 +25,10 @@ OBJ_FILES := 				\
 	vthread32_asm.o			\
 	vthread32.o				\
 	vmem32.o				\
+	syscall.o				\
 	uart.o					\
 	boot.o					\
+	miros.o					\
 	shell.o
 
 build:
