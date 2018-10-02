@@ -18,7 +18,9 @@ struct thread_info {
 
 thread_info_t dummy;
 
+vmutex32_t      thread_ring_mutex;
 thread_handle_t thread_ring;
+
 thread_handle_t active_thread;
 
 vmutex32_t      new_thread_mutex;
@@ -101,6 +103,7 @@ int const vthread32_init(void *const(*thread)(void *const),
     active_thread = &dummy;
     //printf("In switch, active = 0x%X, ", active_thread);
 
+    vmutex32_init(&thread_ring_mutex);
     vmutex32_init(&new_thread_mutex);
     new_thread = VMEM32_NULL;
     vmutex32_init(&finished_thread_mutex);
@@ -114,6 +117,30 @@ int const vthread32_init(void *const(*thread)(void *const),
 }
 thread_handle_t const vthread32_get_active(void) {
     return active_thread;
+}
+unsigned const vthread32_get_all(thread_handle_t **const list) {
+    thread_handle_t handle;
+    unsigned thread_count;
+    unsigned i;
+
+    vmutex32_wait_for_lock(&thread_ring_mutex, VMUTEX32_STATE_LOCKED);
+
+    handle = thread_ring->next;
+    for (thread_count = 1; handle != thread_ring; ++thread_count) {
+        handle = handle->next;
+    }
+
+    *list = (thread_handle_t *const)vmem32_alloc(thread_count * sizeof(thread_handle_t));
+
+    handle = thread_ring;
+    for (i = 0; i < thread_count; ++i) {
+        (*list)[i] = handle;
+        handle = handle->next;
+    }
+
+    vmutex32_unlock(&thread_ring_mutex);
+
+    return thread_count;
 }
 thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                        unsigned const stack_szw, uint32_t const mstatus) {
@@ -164,24 +191,29 @@ void vthread32_switch(void) {
 
     active_thread = active_thread->next;
 
-    // insert the new thread (if any) into the ring
-    if (new_thread != VMEM32_NULL) {
-        new_thread->next = active_thread->next;
-        active_thread->next = new_thread;
-        new_thread->previous = active_thread;
-        new_thread->next->previous = new_thread;
-        new_thread = VMEM32_NULL;
-    }
-
-    // remove the finished thread (if any) from the ring
-    if (finished_thread != VMEM32_NULL && dead_thread == VMEM32_NULL) {
-        if (finished_thread == active_thread) {
-            active_thread = active_thread->next;
+    if (!vmutex32_is_locked(&thread_ring_mutex)) {
+        // insert the new thread (if any) into the ring
+        if (new_thread != VMEM32_NULL) {
+            new_thread->next = active_thread->next;
+            active_thread->next = new_thread;
+            new_thread->previous = active_thread;
+            new_thread->next->previous = new_thread;
+            new_thread = VMEM32_NULL;
         }
-        dead_thread = finished_thread;
-        finished_thread = VMEM32_NULL;
-        dead_thread->previous->next = dead_thread->next;
-        dead_thread->next->previous = dead_thread->previous;
+
+        // remove the finished thread (if any) from the ring
+        if (finished_thread != VMEM32_NULL && dead_thread == VMEM32_NULL) {
+            if (finished_thread == active_thread) {
+                active_thread = active_thread->next;
+            }
+            if (finished_thread == thread_ring) {
+                thread_ring = active_thread;
+            }
+            dead_thread = finished_thread;
+            finished_thread = VMEM32_NULL;
+            dead_thread->previous->next = dead_thread->next;
+            dead_thread->next->previous = dead_thread->previous;
+        }
     }
 
     mstatus       = active_thread->mstatus;

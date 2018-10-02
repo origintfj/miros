@@ -10,6 +10,7 @@ int const vthread32_init(void *const(*thread)(void *const),
                          void *const arg, unsigned const stack_szw,
                          unsigned const kernel_stack_szw);
 thread_handle_t const vthread32_get_active(void);
+unsigned const vthread32_get_all(thread_handle_t **const list);
 thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                        unsigned const stack_szw, uint32_t const mstatus);
 void vthread32_switch(void);

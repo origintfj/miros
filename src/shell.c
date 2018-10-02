@@ -10,17 +10,61 @@ int arg_count;
 char const *arg_list[BUFFER_SZB];
 
 int const run(int const argc, char const *const *argv) {
-    int error = 1;
+    int error = 0;
 
-    if (strcmp(argv[0], "hexdump")) {
-        error = 0;
+    if (strcmp(argv[0], "tot")) {
+        unsigned i;
+        uint32_t *thread_list;
+        unsigned thread_count;
 
-        if (argc != 1) {
-            printf("\nToo many arguments.\n");
-        } else {
-            // TODO
+        printf("\nThreads in flight:\n");
+        thread_count = vthread_get_all(&thread_list);
+        for (i = 0; i < thread_count; ++i) {
+            printf("%X\n", thread_list[i]);
         }
+    } else if (strcmp(argv[0], "xd")) {
+        if (argc >= 2 && argc <= 3) {
+            unsigned i;
+            int count;
+            uint32_t addr;
+
+            count = 32;
+            if (argc == 3) {
+                count = atoi(argv[2]);
+                if (count < 0) {
+                    count = -count;
+                }
+            }
+            addr = (uint32_t const)(xtoi(argv[1]) & -4);
+            printf("\nDumping %i word(s) from address 0x%X:\n", count, addr);
+            for (i = 0; i < (unsigned const)count; ++i) {
+                if ((i & 3) == 0) {
+                    printf("\n%X: ", (addr + i * sizeof(uint32_t)));
+                }
+                printf("%X ", ((uint32_t const *const)addr)[i]);
+            }
+        } else {
+            printf("\nUSAGE:\nxd <hex-address> [ <word-count> ].");
+        }
+        printf("\n");
+    } else if (strcmp(argv[0], "uptime")) {
+        if (argc != 1) {
+            printf("\nToo many arguments.");
+        } else { // TODO - fix this
+            uint64_t uptime_us;
+
+            uptime_us = get_up_time_us();
+            printf("\n%u days, %u hours, %u minutes, %u seconds",
+                   (uint32_t const)(uptime_us / 1000000 / 60 / 60 / 24),
+                   (uint32_t const)(uptime_us / 1000000 / 60 / 60),
+                   (uint32_t const)(uptime_us / 1000000 / 60),
+                   (uint32_t const)(uptime_us / 1000000));
+        }
+        printf("\n");
+    } else {
+        error = 1;
     }
+
     return error;
 }
 int const execute(int const argc, char const *const *const argv,
@@ -57,7 +101,32 @@ int const execute(int const argc, char const *const *const argv,
     free(arg_buffer);
     return error;
 }
+/*
+#define HISTORY_BUFFER_SZB      1000
 
+char *history_buffer;
+unsigned history_head;
+unsigned history_tail;
+
+void history_init(void) {
+    history_head = 0;
+    history_tail = 0;
+
+    history_buffer = (char *const)malloc(HISTORY_BUFFER_SZB);
+}
+void history_append(char const *const str) {
+    unsigned i;
+
+    for (i = 0; str[i] != '\0'; ++i) {
+        history_buffer[history_head + i] = str[i];
+    }
+    history_head += i + 1;
+    history_buffer[history_head++] = '\0';
+}
+void history_print(void) {
+    for (i = history_tail; i < ;
+}
+*/
 void print_prompt() {
     printf("# ");
 }

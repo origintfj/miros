@@ -8,7 +8,8 @@
 typedef uint32_t volatile vmutex32_t;
 
 void vmutex32_init(vmutex32_t *const mutex_ptr);
-uint32_t const vmutex32_lock(vmutex32_t *const mutex_ptr, uint32_t const value);
+int const vmutex32_lock(vmutex32_t *const mutex_ptr, uint32_t const value);
+int const vmutex32_is_locked(vmutex32_t const *const mutex_ptr);
 void vmutex32_wait_for_lock(vmutex32_t *const mutex_ptr, uint32_t const value);
 void vmutex32_unlock(vmutex32_t *const mutex_ptr);
 

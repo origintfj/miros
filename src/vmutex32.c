@@ -7,7 +7,7 @@
 void vmutex32_init(vmutex32_t *const mutex_ptr) {
     *mutex_ptr = VMUTEX32_STATE_FREE;
 }
-uint32_t const vmutex32_lock(vmutex32_t *const mutex_ptr, uint32_t const value) {
+int const vmutex32_lock(vmutex32_t *const mutex_ptr, uint32_t const value) {
     static uint32_t mstatus_ie;
     static uint32_t mutex;
 
@@ -22,6 +22,9 @@ uint32_t const vmutex32_lock(vmutex32_t *const mutex_ptr, uint32_t const value) 
     __asm__ volatile ("csrs mstatus, %0" :: "r"(mstatus_ie) : "memory");
 
     return mutex != VMUTEX32_STATE_FREE;
+}
+int const vmutex32_is_locked(vmutex32_t const *const mutex_ptr) {
+    return *mutex_ptr != VMUTEX32_STATE_FREE;
 }
 void vmutex32_wait_for_lock(vmutex32_t *const mutex_ptr, uint32_t const value) {
     while (vmutex32_lock(mutex_ptr, value));
