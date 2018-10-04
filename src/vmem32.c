@@ -32,9 +32,11 @@ inline uint32_t const get_page(uint32_t const page) {
 void vmem32_dump_table(void) {
     int i;
 
+    vmutex32_wait_for_lock(&table_mutex, VMUTEX32_STATE_LOCKED);
     for (i = 0; i < (mpool_szp >> 5) + (mpool_szp & 0x1f ? 1 : 0); ++i) {
         printf("%X%c", ((uint32_t const *const)mpool_start)[i], ((i + 1) & 0x7 ? ' ' : '\n'));
     }
+    vmutex32_unlock(&table_mutex);
 }
 void vmem32_init(uint8_t *const first_byte, uint8_t *const last_byte) {
     uint32_t remainder;
@@ -59,6 +61,20 @@ void vmem32_init(uint8_t *const first_byte, uint8_t *const last_byte) {
     }
 
     vmutex32_init(&table_mutex);
+}
+unsigned const vmem32_available(void) {
+    uint32_t i;
+    unsigned free_page_count;
+
+    vmutex32_wait_for_lock(&table_mutex, VMUTEX32_STATE_LOCKED);
+    for (i = 0, free_page_count = 0; i < mpool_szp; ) {
+        for (; i < mpool_szp && !get_page(i); ++i, ++free_page_count); // itterate through the zeros
+        for (; i < mpool_szp && get_page(i); ++i); // itterate through the ones
+        ++i; // skip the trailing zero
+    }
+    vmutex32_unlock(&table_mutex);
+
+    return free_page_count << VMEM32_PAGE_SZBX;
 }
 void *const vmem32_alloc(size_t const n_bytes) {
     uint32_t remainder;

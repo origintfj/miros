@@ -1,6 +1,7 @@
 #include <miros.h>
 
 #include <uart.h>
+#include <fat32.h>
 
 #define BUFFER_SZB      64
 
@@ -47,18 +48,25 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nxd <hex-address> [ <word-count> ].");
         }
         printf("\n");
-    } else if (strcmp(argv[0], "uptime")) {
+    } else if (strcmp(argv[0], "mav")) {
+        if (argc != 1) {
+            printf("\nToo many arguments.");
+        } else {
+            printf("\n%u KiB free.", mavailable() >> 10);
+        }
+        printf("\n");
+    } else if (strcmp(argv[0], "ut")) {
         if (argc != 1) {
             printf("\nToo many arguments.");
         } else { // TODO - fix this
             uint64_t uptime_us;
 
-            uptime_us = get_up_time_us();
-            printf("\n%u days, %u hours, %u minutes, %u seconds",
-                   (uint32_t const)(uptime_us / 1000000 / 60 / 60 / 24),
-                   (uint32_t const)(uptime_us / 1000000 / 60 / 60),
-                   (uint32_t const)(uptime_us / 1000000 / 60),
-                   (uint32_t const)(uptime_us / 1000000));
+            uptime_us = get_up_time_us() >> 6;
+            printf("\nBROKEN!\n%u days, %u hours, %u minutes, %u seconds",
+                   (uint32_t const)(uptime_us / 15625 / 60 / 60 / 24),
+                   (uint32_t const)(uptime_us / 15625 / 60 / 60),
+                   (uint32_t const)(uptime_us / 15625 / 60),
+                   (uint32_t const)(uptime_us / 15625));
         }
         printf("\n");
     } else {

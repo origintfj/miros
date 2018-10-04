@@ -18,6 +18,7 @@ SRC_FILES := 				\
 	src/uart.c				\
 	src/boot.c				\
 	src/miros.c				\
+	src/fat32.c				\
 	src/shell.c
 OBJ_FILES := 				\
 	entry.o					\
@@ -29,6 +30,7 @@ OBJ_FILES := 				\
 	uart.o					\
 	boot.o					\
 	miros.o					\
+	fat32.o					\
 	shell.o
 
 build:

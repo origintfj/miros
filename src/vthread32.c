@@ -56,6 +56,14 @@ void *const vthread32_cleanup_deamon(void *const arg) {
 
     __builtin_unreachable();
 }
+/* TODO - implement this
+int const vthread32_kill(thread_handle_t const thread) {
+    vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
+    while (finished_thread != VMEM32_NULL);
+    finished_thread = thread;
+    vmutex32_unlock(&finished_thread_mutex);
+}
+*/
 int const vthread32_init(void *const(*thread)(void *const),
                          void *const arg, unsigned const stack_szw,
                          unsigned const kernel_stack_szw) {

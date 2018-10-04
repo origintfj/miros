@@ -64,6 +64,8 @@ void *const boot_thread(void *const arg) {
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
     vthread32_create(shell, NULL, 1024u, 0x0080);
 
+    //vmem32_dump_table();
+
     return NULL;
 }
 

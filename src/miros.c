@@ -6,17 +6,26 @@
 // timer functions
 //--------------------------------------------------------------
 uint64_t const get_up_time_us(void) {
-    uint32_t form[2];
+    uint32_t form[3];
 
     form[0] = SYSCALL_TIME_GET_UP_TIME_US;
 
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 
-    return ((uint64_t const)(form[2]) << 32) | (uint64_t const)(form[1]);
+    return *((uint64_t const *const)&(form[1]));
 }
 //--------------------------------------------------------------
 // memory allocation functions
 //--------------------------------------------------------------
+uint32_t const mavailable(void) {
+    uint32_t form[2];
+
+    form[0] = SYSCALL_VMEM32_AVAILABLE;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return form[1];
+}
 void *const malloc(size_t const szb) {
     uint32_t form[2];
 

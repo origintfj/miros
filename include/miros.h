@@ -7,6 +7,7 @@
 // timer functions
 uint64_t const get_up_time_us(void);
 // memory allocation functions
+uint32_t const mavailable(void);
 void *const malloc(size_t const szb);
 void free(void *const buffer);
 // thread functions
