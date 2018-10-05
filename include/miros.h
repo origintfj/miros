@@ -15,6 +15,8 @@ unsigned const vthread_get_all(uint32_t **const list);
 uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg);
 // string functions
 int const strcmp(char const str1[], char const str2[]);
+size_t const strlen(char const str[]);
+char *const strcpy(char str_dest[], char const str_src[]);
 int const atoi(char const str[]);
 int const xtoi(char const str[]);
 

@@ -1,14 +1,15 @@
 #include <fat32.h>
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <miros.h>
+
+#include <uart.h> // TODO - remove
 
 uint32_t const read8(uint8_t const *const buffer, uint32_t const offset) {
     return (uint32_t const)buffer[offset];
 }
 uint32_t const read16(uint8_t const *const buffer, uint32_t const offset) {
-    return ((uint32_t const)(buffer[offset + 1] << 8) | ((uint32_t const)buffer[offset + 0] << 0));
+    return (((uint32_t const)buffer[offset + 1] << 8) |
+            ((uint32_t const)buffer[offset + 0] << 0) ) & 0xffff;
 }
 uint32_t const read32(uint8_t const *const buffer, uint32_t const offset) {
     return ((uint32_t const)buffer[offset + 3] << 24) | ((uint32_t const)buffer[offset + 2] << 16) |
@@ -33,14 +34,17 @@ int const mount(fs_info_t *const fs_info, uint8_t *const fat32_img) {
     fs_info->fs_type[8] = '\0';
     fs_info->signature  = read16(fat32_img, 510);
 
+    printf("\nsig=%x\n", read16(fat32_img, 510));
+    printf("sig=%x\n", read8(fat32_img, 510));
+
     fs_info->fat_begin_lba     = fs_info->rsvd_sector_count;
     fs_info->cluster_begin_lba = fs_info->rsvd_sector_count + (fs_info->fat_count * fs_info->fat_sz_sectors);
 
     // check it's a supported file system
     for (i = 0; i < 8; ++i) {
-        error = error | (fs_info->fs_type[i] != "FAT32   "[i]);
+        error = error | ((fs_info->fs_type[i] != "FAT32   "[i]) ? 1 : 0);
     }
-    error = error | (fs_info->signature != 0xaa55);
+    error = error | ((fs_info->signature != 0xaa55) ? 2 : 0);
 
     return error;
 }
@@ -142,7 +146,7 @@ int const dir_walk(fs_info_t const *const fs_info, dir_record_t *const dir_recor
         }
         ++i;
         if (temp_path[start] != '\0') {
-            printf("->'%s'\n", &temp_path[start]);
+            //printf("->'%s'\n", &temp_path[start]);
             error = dir_descend(fs_info, dir_record, &temp_path[start]);
         }
     }

@@ -13,6 +13,7 @@ fat32fs:
 	echo "test2" > mnt/root/test2.txt
 	echo "test3" > mnt/root/sub/test3.txt
 	sudo umount mnt/
+	xxd -p fat32fs.img > fat32fs.x
 
 mount:
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/

@@ -56,7 +56,7 @@ int main(void) {
     dir_walk(&fat32_fs, &dir_record, path);
     fat32_ls(&fat32_fs, &dir_record);
 
-    path = "ROOT";
+    path = "ROOT/SUB/";
     printf("\ndescending to '%s'\n", path);
     dir_walk(&fat32_fs, &dir_record, path);
     fat32_ls(&fat32_fs, &dir_record);

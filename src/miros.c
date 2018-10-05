@@ -74,6 +74,19 @@ int const strcmp(char const str1[], char const str2[]) {
     for (i = 0; str1[i] == str2[i] && str1[i] != '\0'; ++i);
     return str1[i] == str2[i];
 }
+size_t const strlen(char const str[]) {
+    unsigned i;
+    for (i = 0; str[i] != '\0'; ++i);
+    return (size_t const)i;
+}
+char *const strcpy(char str_dest[], char const str_src[]) {
+    int i;
+    for (i = 0; str_src[i] != '\0'; ++i) {
+        str_dest[i] = str_src[i];
+    }
+    str_dest[i] = '\0';
+    return str_dest;
+}
 int const atoi(char const str[]) {
     int num = 0;
     int neg = 0;

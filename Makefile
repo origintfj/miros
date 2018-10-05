@@ -39,6 +39,7 @@ build:
 	$(OBJCOPY) -O ihex miros.out miros.hex
 	$(OBJDUMP) -D miros.out > miros.dis
 	#$(AR) rcs libsos32.a src/system.c
+	cp fattest/fat32fs.x .
 
 clean:
 	rm -f *.o *.dis *.a

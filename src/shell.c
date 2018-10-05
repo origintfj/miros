@@ -10,10 +10,30 @@ char buffer[BUFFER_SZB];
 int arg_count;
 char const *arg_list[BUFFER_SZB];
 
+#define PATH_SZB        256
+
+fs_info_t fat32fs;
+char path[PATH_SZB];
+
 int const run(int const argc, char const *const *argv) {
     int error = 0;
 
-    if (strcmp(argv[0], "tot")) {
+    if (strcmp(argv[0], "mount")) {
+        int mount_err = 0;
+
+        if (argc == 2) {
+            uint8_t *const fs_image = (uint8_t *const)xtoi(argv[1]);
+            mount_err = mount(&fat32fs, fs_image);
+            if (!mount_err) {
+                strcpy(path, "/");
+            } else {
+                printf("\nUnsupported file system type (%u), %X.\n", mount_err, fat32fs.signature);
+            }
+        } else {
+            printf("\nUSAGE:\nmount <pointer to partition image>.\n");
+        }
+        printf("\n");
+    } else if (strcmp(argv[0], "tot")) {
         unsigned i;
         uint32_t *thread_list;
         unsigned thread_count;
@@ -55,10 +75,60 @@ int const run(int const argc, char const *const *argv) {
             printf("\n%u KiB free.", mavailable() >> 10);
         }
         printf("\n");
-    } else if (strcmp(argv[0], "ut")) {
+    } else if (strcmp(argv[0], "upload")) { // TODO - clean up
+        if (argc == 2) {
+            unsigned const size = atoi(argv[1]);
+            uint8_t *const buffer = (uint8_t *const)malloc(size);
+            
+            printf("\n");
+            if (buffer == NULL) {
+                printf("Not enough memory!\n");
+            } else {
+                unsigned i;
+                uint8_t c;
+
+                printf("Paste the ASCII hex image into the terminal...");
+                for (i = 0, c = '\0'; c != 'q' && i < (size << 1); ++i) {
+                    uint8_t byte;
+
+                    do {
+                        c = (uint8_t const)uart_getc();
+                    } while ( !( (c == 'q') ||
+                                 (c >= '0' && c <= '9') ||
+                                 (c >= 'a' && c <= 'f') ||
+                                 (c >= 'A' && c <= 'F') ) );
+                    if (c == 'q') {
+                        i = 2 * size;
+                    } else if (c >= '0' && c <= '9') {
+                        c = c - '0';
+                    } else if (c >= 'a' && c <= 'f') {
+                        c = c - 'a' + 10;
+                    } else if (c >= 'A' && c <= 'F') {
+                        c = c - 'A' + 10;
+                    }
+                    byte = byte << 4;
+                    byte = byte | c;
+
+                    if (i & 1) {
+                        buffer[i >> 1] = byte;
+                        //printf("%x=%x\n", &(buffer[i >> 1]), byte);
+                    }
+                }
+                if (c == 'q') {
+                    printf("ABORTED!\nUpload canceled.\n", buffer);
+                    free(buffer);
+                } else {
+                    printf("done!\nAddress = 0x%X\n", buffer);
+                }
+            }
+        } else {
+            printf("\nUSAGE:\nupload <size (bytes)>.  Then wait for prompt.\n");
+        }
+        printf("\n");
+    } else if (strcmp(argv[0], "ut")) { // TODO - fix this
         if (argc != 1) {
             printf("\nToo many arguments.");
-        } else { // TODO - fix this
+        } else {
             uint64_t uptime_us;
 
             uptime_us = get_up_time_us() >> 6;
@@ -136,11 +206,12 @@ void history_print(void) {
 }
 */
 void print_prompt() {
-    printf("# ");
+    printf("%s# ", path);
 }
 void *const shell(void *const arg) {
     char c;
-    int i;
+
+    path[0] = '\0';
 
     printf("\n");
     print_prompt();
@@ -155,6 +226,8 @@ void *const shell(void *const arg) {
             buffer[buffer_index] = c;
             ++buffer_index;
         } else if (buffer_index < BUFFER_SZB && c == 0x0d) { // enter
+            int i;
+
             buffer[buffer_index] = '\0';
 
             // populate the arg_list and set arg_count
