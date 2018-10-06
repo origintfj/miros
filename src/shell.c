@@ -15,10 +15,29 @@ char const *arg_list[BUFFER_SZB];
 fs_info_t fat32fs;
 char path[PATH_SZB];
 
+unsigned const path_next(char str_next[], char const str_path[], unsigned i) {
+    unsigned j;
+    for (; str_path[i] == '/'; ++i);
+    for (j = 0; str_path[i] != '\0' && str_path[i] != '/'; ++j, ++i) {
+        str_next[j] = str_path[i];
+    }
+    str_next[j] = '\0';
+    return i;
+}
+char *const path_strip_last(char str_path[]) {
+    int i;
+    // remove trailing '/'
+    for (i = strlen(str_path) - 1; i > 0 && str_path[i] == '/'; --i);
+    for (; i > 0 && str_path[i] != '/'; --i);
+    str_path[i++] = '/';
+    str_path[i] = '\0';
+    return str_path;
+}
+
 int const run(int const argc, char const *const *argv) {
     int error = 0;
 
-    if (strcmp(argv[0], "mount")) {
+    if (!strcmp(argv[0], "mount")) {
         int mount_err = 0;
 
         if (argc == 2) {
@@ -33,7 +52,66 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nmount <pointer to partition image>.\n");
         }
         printf("\n");
-    } else if (strcmp(argv[0], "tot")) {
+    } else if (!strcmp(argv[0], "ls")) {
+        if (argc == 1) {
+            dir_record_t dir_record;
+            dir_set_root(&fat32fs, &dir_record);
+            dir_walk(&fat32fs, &dir_record, path);
+
+            printf("\n");
+            while (!get_entry(&fat32fs, &dir_record)) {
+                if (dir_record.attribute & FAT32_DIR_ATTRIB_DIR) {
+                    printf("DIR     ");
+                } else {
+                    printf("FILE    ");
+                }
+                printf("%c%s%c\n", dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? '[' : '\'',
+                                   dir_record.short_name,
+                                   dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? ']' : '\'');//,
+                                   //dir_record->first_cluster);
+            }
+        } else {
+            printf("\nToo many arguments.\n");
+        }
+    } else if (!strcmp(argv[0], "cd")) {
+        if (argc == 2) {
+            unsigned i;
+            dir_record_t dir_record;
+            char temp_path[PATH_SZB];
+            char dir[PATH_SZB];
+
+            if (argv[1][0] == '/') {
+                strcpy(temp_path, "/");
+            } else {
+                strcpy(temp_path, path);
+            }
+            for (i = 0; argv[1][i] != '\0'; ) {
+                i = path_next(dir, argv[1], i);
+                //printf("next='%s'", dir);
+                if (!strcmp(dir, "..")) {
+                    //printf("before strip='%s'", temp_path);
+                    path_strip_last(temp_path);
+                    //printf("after strip='%s'", temp_path);
+                } else if (strcmp(dir, ".") && strcmp(dir, "")) {
+                    strcat(temp_path, dir);
+                    strcat(temp_path, "/");
+                    //printf("after cat='%s'", temp_path);
+                }
+            }
+
+            dir_set_root(&fat32fs, &dir_record);
+            if (!dir_walk(&fat32fs, &dir_record, temp_path)) {
+                //printf("success->'%s'\n", argv[1]);
+                if (strlen(argv[1]) < PATH_SZB) {
+                    strcpy(path, temp_path);
+                } else {
+                    printf("\nPath too long.\n");
+                }
+            }
+        } else {
+            printf("\nUSAGE:\ncd <path>.\n");
+        }
+    } else if (!strcmp(argv[0], "tot")) {
         unsigned i;
         uint32_t *thread_list;
         unsigned thread_count;
@@ -43,7 +121,7 @@ int const run(int const argc, char const *const *argv) {
         for (i = 0; i < thread_count; ++i) {
             printf("%X\n", thread_list[i]);
         }
-    } else if (strcmp(argv[0], "xd")) {
+    } else if (!strcmp(argv[0], "xd")) {
         if (argc >= 2 && argc <= 3) {
             unsigned i;
             int count;
@@ -68,14 +146,14 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nxd <hex-address> [ <word-count> ].");
         }
         printf("\n");
-    } else if (strcmp(argv[0], "mav")) {
+    } else if (!strcmp(argv[0], "mav")) {
         if (argc != 1) {
             printf("\nToo many arguments.");
         } else {
             printf("\n%u KiB free.", mavailable() >> 10);
         }
         printf("\n");
-    } else if (strcmp(argv[0], "upload")) { // TODO - clean up
+    } else if (!strcmp(argv[0], "upload")) { // TODO - clean up
         if (argc == 2) {
             unsigned const size = atoi(argv[1]);
             uint8_t *const buffer = (uint8_t *const)malloc(size);
@@ -125,7 +203,7 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nupload <size (bytes)>.  Then wait for prompt.\n");
         }
         printf("\n");
-    } else if (strcmp(argv[0], "ut")) { // TODO - fix this
+    } else if (!strcmp(argv[0], "ut")) { // TODO - fix this
         if (argc != 1) {
             printf("\nToo many arguments.");
         } else {

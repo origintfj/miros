@@ -72,7 +72,7 @@ uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg
 int const strcmp(char const str1[], char const str2[]) {
     int i;
     for (i = 0; str1[i] == str2[i] && str1[i] != '\0'; ++i);
-    return str1[i] == str2[i];
+    return str1[i] != str2[i];
 }
 size_t const strlen(char const str[]) {
     unsigned i;
@@ -83,6 +83,15 @@ char *const strcpy(char str_dest[], char const str_src[]) {
     int i;
     for (i = 0; str_src[i] != '\0'; ++i) {
         str_dest[i] = str_src[i];
+    }
+    str_dest[i] = '\0';
+    return str_dest;
+}
+char *const strcat(char str_dest[], char const str_src[]) {
+    unsigned i, j;
+    for (i = 0; str_dest[i] != '\0'; ++i);
+    for (j = 0; str_src[j] != '\0'; ++j, ++i) {
+        str_dest[i] = str_src[j];
     }
     str_dest[i] = '\0';
     return str_dest;

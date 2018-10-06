@@ -34,9 +34,6 @@ int const mount(fs_info_t *const fs_info, uint8_t *const fat32_img) {
     fs_info->fs_type[8] = '\0';
     fs_info->signature  = read16(fat32_img, 510);
 
-    printf("\nsig=%x\n", read16(fat32_img, 510));
-    printf("sig=%x\n", read8(fat32_img, 510));
-
     fs_info->fat_begin_lba     = fs_info->rsvd_sector_count;
     fs_info->cluster_begin_lba = fs_info->rsvd_sector_count + (fs_info->fat_count * fs_info->fat_sz_sectors);
 
@@ -112,6 +109,7 @@ int const dir_descend(fs_info_t const *const fs_info, dir_record_t *const dir_re
     dir_reset(dir_record);
 
     while (match == 0 && !get_entry(fs_info, dir_record)) {
+        //printf("Found '%s'\n", dir_record->short_name);
         if ((dir_record->attribute & FAT32_DIR_ATTRIB_DIR) && !strcmp(dir_record->short_name, dir_name)) {
             match = 1;
         }
