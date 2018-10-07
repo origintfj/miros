@@ -8,6 +8,8 @@ fat32fs:
 	mkfs.vfat -v -F32 fat32fs.img
 	mkdir -p mnt
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/
+	mkdir -p mnt/bin
+	mkdir -p mnt/sys/kernel
 	mkdir -p mnt/root/sub
 	echo "test1" > mnt/test1.txt
 	echo "test2" > mnt/root/test2.txt

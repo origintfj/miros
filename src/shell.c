@@ -46,35 +46,38 @@ int const run(int const argc, char const *const *argv) {
             if (!mount_err) {
                 strcpy(path, "/");
             } else {
-                printf("\nUnsupported file system type (%u), %X.\n", mount_err, fat32fs.signature);
+                printf("\nUnsupported file system type (%u)", mount_err);
             }
         } else {
-            printf("\nUSAGE:\nmount <pointer to partition image>.\n");
+            printf("\nUSAGE:\nmount <pointer to partition image>");
         }
         printf("\n");
     } else if (!strcmp(argv[0], "ls")) {
-        if (argc == 1) {
+        if (!strcmp(path, "")) {
+            printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
+        } else if (argc == 1) {
             dir_record_t dir_record;
             dir_set_root(&fat32fs, &dir_record);
             dir_walk(&fat32fs, &dir_record, path);
 
-            printf("\n");
             while (!get_entry(&fat32fs, &dir_record)) {
                 if (dir_record.attribute & FAT32_DIR_ATTRIB_DIR) {
-                    printf("DIR     ");
+                    printf("\nDIR     ");
                 } else {
-                    printf("FILE    ");
+                    printf("\n        ");
                 }
-                printf("%c%s%c\n", dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? '[' : '\'',
-                                   dir_record.short_name,
-                                   dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? ']' : '\'');//,
-                                   //dir_record->first_cluster);
+                printf("%c%s%c", dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? '[' : '\'',
+                                 dir_record.short_name,
+                                 dir_record.attribute & FAT32_DIR_ATTRIB_DIR ? ']' : '\'');//,
+                                 //dir_record->first_cluster);
             }
         } else {
-            printf("\nToo many arguments.\n");
+            printf("\n%s: Too many arguments", argv[0]);
         }
     } else if (!strcmp(argv[0], "cd")) {
-        if (argc == 2) {
+        if (!strcmp(path, "")) {
+            printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
+        } else if (argc == 2) {
             unsigned i;
             dir_record_t dir_record;
             char temp_path[PATH_SZB];
@@ -105,11 +108,13 @@ int const run(int const argc, char const *const *argv) {
                 if (strlen(argv[1]) < PATH_SZB) {
                     strcpy(path, temp_path);
                 } else {
-                    printf("\nPath too long.\n");
+                    printf("\n%s: Path too long", argv[0]);
                 }
+            } else {
+                printf("\n%s: No such directory", argv[0]);
             }
         } else {
-            printf("\nUSAGE:\ncd <path>.\n");
+            printf("\nUSAGE:\ncd <path>");
         }
     } else if (!strcmp(argv[0], "tot")) {
         unsigned i;
@@ -143,7 +148,7 @@ int const run(int const argc, char const *const *argv) {
                 printf("%X ", ((uint32_t const *const)addr)[i]);
             }
         } else {
-            printf("\nUSAGE:\nxd <hex-address> [ <word-count> ].");
+            printf("\nUSAGE:\nxd <hex-address> [ <word-count> ]");
         }
         printf("\n");
     } else if (!strcmp(argv[0], "mav")) {
@@ -153,6 +158,14 @@ int const run(int const argc, char const *const *argv) {
             printf("\n%u KiB free.", mavailable() >> 10);
         }
         printf("\n");
+    } else if (!strcmp(argv[0], "free")) { // TODO - clean up
+        if (argc == 2) {
+            uint8_t *const buffer = (uint8_t *const)xtoi(argv[1]);
+            
+            free(buffer);
+        } else {
+            printf("\nUSAGE:\nfree <address of container to be freed>\n");
+        }
     } else if (!strcmp(argv[0], "upload")) { // TODO - clean up
         if (argc == 2) {
             unsigned const size = atoi(argv[1]);
@@ -200,7 +213,7 @@ int const run(int const argc, char const *const *argv) {
                 }
             }
         } else {
-            printf("\nUSAGE:\nupload <size (bytes)>.  Then wait for prompt.\n");
+            printf("\nUSAGE:\nupload <size (bytes)>\nThen wait for prompt.\n");
         }
         printf("\n");
     } else if (!strcmp(argv[0], "ut")) { // TODO - fix this
@@ -284,7 +297,7 @@ void history_print(void) {
 }
 */
 void print_prompt() {
-    printf("%s# ", path);
+    printf("shell:%s# ", path);
 }
 void *const shell(void *const arg) {
     char c;
