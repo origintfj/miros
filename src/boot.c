@@ -62,7 +62,7 @@ void *const shell(void *const arg);
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
-    vthread32_create(shell, NULL, 1024u, 0x0080);
+    vthread32_create(shell, NULL, 1024u, 0x1880);
 
     //vmem32_dump_table();
 
@@ -79,21 +79,33 @@ void trap_excp(uint32_t *const argv, int32_t const mcause) {
         __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
         mepc += 4;
         syscall(argv);
-        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+        __asm__ volatile ("csrw mstatus, %0; csrw mepc, %1" :: "r"(mstatus), "r"(mepc) : "memory");
     } else if (mcause == 9) { // s-ecall
         __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
         mepc += 4;
         syscall(argv);
-        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+        __asm__ volatile ("csrw mstatus, %0; csrw mepc, %1" :: "r"(mstatus), "r"(mepc) : "memory");
     } else if (mcause == 8) { // u-ecall
         __asm__ volatile ("csrr %0, mepc; csrrs %1, mstatus, 0x8" : "=r"(mepc), "=r"(mstatus) :: "memory");
         mepc += 4;
         syscall(argv);
-        __asm__ volatile ("csrw mepc, %0; csrw mstatus, %1" :: "r"(mepc), "r"(mstatus) : "memory");
+        __asm__ volatile ("csrw mstatus, %0; csrw mepc, %1" :: "r"(mstatus), "r"(mepc) : "memory");
     } else {
-        __asm__ volatile ("csrr %0, mepc" : "=r"(mepc) :: "memory");
+        unsigned i;
+        int count;
+        uint32_t addr;
+
+        __asm__ volatile ("csrr %0, mepc; mv %1, sp" : "=r"(mepc), "=r"(addr) :: "memory");
 
         printf("\n[%X] Exception (%u).\n", mepc, mcause);
+        count = 256;
+        printf("Dumping %i word(s) from address 0x%X:\n", count, addr);
+        for (i = 0; i < (unsigned const)count; ++i) {
+            if ((i & 3) == 0) {
+                printf("\n%X: ", (addr + i * sizeof(uint32_t)));
+            }
+            printf("%X ", ((uint32_t const *const)addr)[i]);
+        }
         while(1);
         __builtin_unreachable();
     }
