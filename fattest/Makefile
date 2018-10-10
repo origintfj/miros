@@ -14,6 +14,7 @@ fat32fs:
 	echo "test1" > mnt/test1.txt
 	echo "test2" > mnt/root/test2.txt
 	echo "test3" > mnt/root/sub/test3.txt
+	cp ../include/fat32.h mnt/root/sub/
 	sudo umount mnt/
 	xxd -p fat32fs.img > fat32fs.x
 

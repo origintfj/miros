@@ -12,7 +12,7 @@ char const *arg_list[BUFFER_SZB];
 
 #define PATH_SZB        256
 
-fat32_t fat32fs;
+fat32_t *fat32fs;
 char path[PATH_SZB];
 
 unsigned const path_next(char str_next[], char const str_path[], unsigned i) {
@@ -38,30 +38,28 @@ int const run(int const argc, char const *const *argv) {
     int error = 0;
 
     if (!strcmp(argv[0], "mount")) {
-        int mount_err = 0;
-
         if (argc == 2) {
-            uint8_t *const fs_image = (uint8_t *const)xtoi(argv[1]);
-            mount_err = mount(&fat32fs, fs_image);
-            if (!mount_err) {
+            void *const fs_image = (uint8_t *const)xtoi(argv[1]);
+            fat32fs = fat32_mount(fs_image);
+            if (fat32fs != NULL) {
                 strcpy(path, "/");
             } else {
                 strcpy(path, "");
-                printf("\nUnsupported file system type (%u)", mount_err);
+                printf("\nUnsupported file system type");
             }
         } else {
             printf("\nUSAGE:\nmount <pointer to partition image>");
         }
         printf("\n");
     } else if (!strcmp(argv[0], "ls")) {
-        if (!strcmp(path, "")) {
+        if (fat32fs == NULL) {
             printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
         } else if (argc == 1) {
             fat32_entry_t fat32_entry;
-            dir_set_root(&fat32fs, &fat32_entry);
-            dir_walk(&fat32fs, &fat32_entry, path);
 
-            while (!get_entry(&fat32fs, &fat32_entry)) {
+            fat32_dir_set(fat32fs, &fat32_entry, path);
+
+            while (!fat32_get_entry(fat32fs, &fat32_entry)) {
                 if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
                     printf("\nDIR     ");
                 } else {
@@ -77,25 +75,31 @@ int const run(int const argc, char const *const *argv) {
         }
     } else if (!strcmp(argv[0], "cat")) {
         if (argc == 2) {
-            fat32_file_t *ifile = fat32_open(&fat32fs, argv[1]);
-            printf("\nfile handle = %X", ifile);
-            if (ifile != NULL) { // TODO - which NULL
-                fat32_seek(ifile, 0, FAT32_SEEK_END);
-                unsigned ifile_len = fat32_tell(ifile);
-                printf("\nfile length = %u\n", ifile_len);
-                char *const buffer = (char *const)malloc(ifile_len * sizeof(char) + 1);
-                fat32_seek(ifile, 0, FAT32_SEEK_SET);
-                fat32_read(buffer, sizeof(char), ifile_len, ifile);
-                buffer[ifile_len] = '\0';
-                fat32_close(ifile);
-                printf("\n%s", buffer);
-                free(buffer);
+            char temp_path[BUFFER_SZB];
+            strcpy(temp_path, path);
+            if (strlen(path) + 1 + strlen(temp_path) < FAT32_MAX_PATH_LENGTH) {
+                strcat(temp_path, "/");
+                strcat(temp_path, argv[1]);
+                fat32_file_t *ifile = fat32_open(fat32fs, argv[1]);
+                if (ifile != NULL) {
+                    fat32_seek(ifile, 0, FAT32_SEEK_END);
+                    unsigned ifile_len = fat32_tell(ifile);
+                    char *const buffer = (char *const)malloc(ifile_len * sizeof(char) + 1);
+                    fat32_seek(ifile, 0, FAT32_SEEK_SET);
+                    fat32_read(buffer, sizeof(char), ifile_len, ifile);
+                    buffer[ifile_len] = '\0';
+                    fat32_close(ifile);
+                    printf("\n%s", buffer);
+                    free(buffer);
+                }
+            } else {
+                printf("\n%s: Path too long", argv[0]);
             }
         } else {
             printf("\nUSAGE:\ncat <file name>");
         }
     } else if (!strcmp(argv[0], "cd")) {
-        if (!strcmp(path, "")) {
+        if (fat32fs == NULL) {
             printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
         } else if (argc == 2) {
             unsigned i;
@@ -108,7 +112,7 @@ int const run(int const argc, char const *const *argv) {
             } else {
                 strcpy(temp_path, path);
             }
-            for (i = 0; argv[1][i] != '\0'; ) {
+            for (i = 0; argv[1][i] != '\0'; ) { // TODO - check path doesn't outgrow buffer
                 i = path_next(dir, argv[1], i);
                 //printf("next='%s'", dir);
                 if (!strcmp(dir, "..")) {
@@ -122,14 +126,11 @@ int const run(int const argc, char const *const *argv) {
                 }
             }
 
-            dir_set_root(&fat32fs, &fat32_entry);
-            if (!dir_walk(&fat32fs, &fat32_entry, temp_path)) {
-                //printf("success->'%s'\n", argv[1]);
-                if (strlen(argv[1]) < PATH_SZB) {
-                    strcpy(path, temp_path);
-                } else {
-                    printf("\n%s: Path too long", argv[0]);
-                }
+            printf("\ncd to '%s'", temp_path);
+            if (strlen(temp_path) >= PATH_SZB) {
+                printf("\n%s: Path too long", argv[0]);
+            } else if (!fat32_dir_set(fat32fs, &fat32_entry, temp_path)) {
+                strcpy(path, temp_path);
             } else {
                 printf("\n%s: No such directory", argv[0]);
             }
@@ -187,18 +188,17 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nfree <address of container to be freed>\n");
         }
     } else if (!strcmp(argv[0], "upload")) { // TODO - clean up
-        if (argc == 2) {
+        if (argc == 2 || argc == 3) {
             unsigned const size = atoi(argv[1]);
             uint8_t *const buffer = (uint8_t *const)malloc(size);
             
-            printf("\n");
             if (buffer == NULL) {
-                printf("Not enough memory!\n");
+                printf("\nNot enough memory!");
             } else {
                 unsigned i;
                 uint8_t c;
 
-                printf("Paste the ASCII hex image into the terminal...");
+                printf("\nPaste the ASCII hex image into the terminal...");
                 for (i = 0, c = '\0'; c != 'q' && i < (size << 1); ++i) {
                     uint8_t byte;
 
@@ -226,14 +226,23 @@ int const run(int const argc, char const *const *argv) {
                     }
                 }
                 if (c == 'q') {
-                    printf("ABORTED!\nUpload canceled.\n", buffer);
+                    printf("ABORTED!\nUpload canceled", buffer);
                     free(buffer);
                 } else {
-                    printf("done!\nAddress = 0x%X\n", buffer);
+                    printf("done!\nAddress = %X (HEX)", buffer);
+                    if (argc == 3) {
+                        fat32fs = fat32_mount(buffer);
+                        if (fat32fs != NULL) {
+                            strcpy(path, "/");
+                        } else {
+                            strcpy(path, "");
+                            printf("Unsupported file system type");
+                        }
+                    }
                 }
             }
         } else {
-            printf("\nUSAGE:\nupload <size (bytes)>\nThen wait for prompt.\n");
+            printf("\nUSAGE:\nupload <size (bytes)>\nThen wait for prompt.");
         }
         printf("\n");
     } else if (!strcmp(argv[0], "ut")) { // TODO - fix this
