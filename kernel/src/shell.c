@@ -2,6 +2,8 @@
 
 #include <uart.h>
 #include <fat32.h>
+#include <vmem32.h>
+#include <vthread32.h>
 
 #define BUFFER_SZB      64
 
@@ -265,6 +267,31 @@ int const run(int const argc, char const *const *argv) {
 
     return error;
 }
+int const start(int const argc, char const *const *const argv) {
+    char temp_path[FAT32_MAX_PATH_LENGTH];
+
+    strcpy(temp_path, "/BIN/");
+
+    if (strlen(temp_path) + strlen(argv[0]) < FAT32_MAX_PATH_LENGTH) {
+        strcat(temp_path, argv[0]);
+
+        fat32_file_t *ifile = fat32_open(fat32fs, argv[0]);
+
+        if (ifile != NULL) {
+            fat32_seek(ifile, 0, FAT32_SEEK_END);
+            unsigned ifile_len = fat32_tell(ifile);
+            char *const buffer = (char *const)vmem32_alloc(ifile_len * sizeof(char));
+            fat32_seek(ifile, 0, FAT32_SEEK_SET);
+            fat32_read(buffer, sizeof(char), ifile_len, ifile);
+            buffer[ifile_len] = '\0';
+            fat32_close(ifile);
+
+            //vthread32_create(buffer, NULL, 1024u, 0x1880);
+
+            free(buffer);
+        }
+    }
+}
 int const execute(int const argc, char const *const *const argv,
                   char const *const buffer) {
     char *str_buffer;
@@ -295,6 +322,9 @@ int const execute(int const argc, char const *const *const argv,
         //printf("'%s'\n", argv[i]);
     }
     error = run(argc, argv);
+    if (error) {
+        start(argc, argv);
+    }
 
     free(arg_buffer);
     return error;
