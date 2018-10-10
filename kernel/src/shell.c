@@ -56,21 +56,35 @@ int const run(int const argc, char const *const *argv) {
     } else if (!strcmp(argv[0], "ls")) {
         if (fat32fs == NULL) {
             printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
-        } else if (argc == 1) {
+        } else if (argc == 1 || argc == 2) {
             fat32_entry_t fat32_entry;
+            char temp_path[FAT32_MAX_PATH_LENGTH];
 
-            fat32_dir_set(fat32fs, &fat32_entry, path);
-
-            while (!fat32_get_entry(fat32fs, &fat32_entry)) {
-                if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
-                    printf("\nDIR     ");
+            strcpy(temp_path, path);
+            if (argc == 2) {
+                if (argv[1][0] == '/') {
+                    strcpy(temp_path, argv[1]);
                 } else {
-                    printf("\n        ");
+                    strcpy(temp_path, path);
+                    strcat(temp_path, argv[1]);
+                    strcat(temp_path, "/");
                 }
-                printf("%c%s%c", fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? '[' : '\'',
-                                 fat32_entry.short_name,
-                                 fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? ']' : '\'');//,
-                                 //fat32_entry->first_cluster);
+            }
+
+            if (!fat32_dir_set(fat32fs, &fat32_entry, temp_path)) {
+                while (!fat32_get_entry(fat32fs, &fat32_entry)) {
+                    if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
+                        printf("\nDIR     ");
+                    } else {
+                        printf("\n        ");
+                    }
+                    printf("%c%s%c", fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? '[' : '\'',
+                                     fat32_entry.short_name,
+                                     fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? ']' : '\'');//,
+                                     //fat32_entry->first_cluster);
+                }
+            } else {
+                printf("\nDirectory not found.");
             }
         } else {
             printf("\n%s: Too many arguments", argv[0]);
@@ -78,11 +92,14 @@ int const run(int const argc, char const *const *argv) {
     } else if (!strcmp(argv[0], "cat")) {
         if (argc == 2) {
             char temp_path[BUFFER_SZB];
-            strcpy(temp_path, path);
-            if (strlen(path) + 1 + strlen(temp_path) < FAT32_MAX_PATH_LENGTH) {
-                strcat(temp_path, "/");
-                strcat(temp_path, argv[1]);
-                fat32_file_t *ifile = fat32_open(fat32fs, argv[1]);
+            if (strlen(path) + 1 + strlen(argv[1]) < FAT32_MAX_PATH_LENGTH) {
+                if (argv[1][0] == '/') {
+                    strcpy(temp_path, argv[1]);
+                } else {
+                    strcpy(temp_path, path);
+                    strcat(temp_path, argv[1]);
+                }
+                fat32_file_t *ifile = fat32_open(fat32fs, temp_path);
                 if (ifile != NULL) {
                     fat32_seek(ifile, 0, FAT32_SEEK_END);
                     unsigned ifile_len = fat32_tell(ifile);
@@ -93,6 +110,8 @@ int const run(int const argc, char const *const *argv) {
                     fat32_close(ifile);
                     printf("\n%s", buffer);
                     free(buffer);
+                } else {
+                    printf("\nCannot open file '%s'", temp_path);
                 }
             } else {
                 printf("\n%s: Path too long", argv[0]);
@@ -128,7 +147,7 @@ int const run(int const argc, char const *const *argv) {
                 }
             }
 
-            printf("\ncd to '%s'", temp_path);
+            //printf("\ncd to '%s'", temp_path);
             if (strlen(temp_path) >= PATH_SZB) {
                 printf("\n%s: Path too long", argv[0]);
             } else if (!fat32_dir_set(fat32fs, &fat32_entry, temp_path)) {
@@ -233,12 +252,16 @@ int const run(int const argc, char const *const *argv) {
                 } else {
                     printf("done!\nAddress = %X (HEX)", buffer);
                     if (argc == 3) {
-                        fat32fs = fat32_mount(buffer);
-                        if (fat32fs != NULL) {
-                            strcpy(path, "/");
+                        if (!strcmp(argv[2], "m")) {
+                            fat32fs = fat32_mount(buffer);
+                            if (fat32fs != NULL) {
+                                strcpy(path, "/");
+                            } else {
+                                strcpy(path, "");
+                                printf("\nUnsupported file system type");
+                            }
                         } else {
-                            strcpy(path, "");
-                            printf("Unsupported file system type");
+                            printf("\nBad 3rd argument.  Use 'm' to mount image.");
                         }
                     }
                 }

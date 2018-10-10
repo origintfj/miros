@@ -37,6 +37,7 @@ build:
 	$(CC) $(SRC_FILES) $(CC_OPTIONS) -c
 	$(LD) $(OBJ_FILES) $(LD_OPTIONS) -lgcc -o miros.out
 	$(OBJCOPY) -O ihex miros.out miros.hex
+	$(OBJCOPY) -O binary miros.out miros.bin
 	$(OBJDUMP) -D miros.out > miros.dis
 	#$(AR) rcs libsos32.a src/system.c
 	#ll fattest/fat32fs.img

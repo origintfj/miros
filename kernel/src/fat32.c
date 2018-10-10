@@ -208,6 +208,7 @@ fat32_t *const fat32_mount(void *const fat32_img) {
     return fat32;
 }
 int const fat32_dir_set(fat32_t const *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
+    // TODO - remove requirment for trailing '/'
     if (fat32 == VMEM32_NULL) {
         return 1;
     }
@@ -263,8 +264,8 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
 
     dir_set_root(fat32, &dir_entry);
 
-    for (i = strlen(path); i > 0 && path[i] != '/'; --i);
-    file_name = (i == 0 ? path : &path[i + 1]);
+    for (i = strlen(path); i >= 0 && path[i] != '/'; --i);
+    file_name = (i < 0 ? path : &path[i + 1]);
 
     for (sub_path = path, match = 1, found_dir = 0; !found_dir && match; ) {
         for (i = 0; sub_path[i] == '/' && &sub_path[i] != file_name; ++i);
@@ -279,13 +280,16 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     if (!found_dir) {
         return VMEM32_NULL;
     }
+    //printf("\nDF<%s>", file_name);
 
     int eod;
     match = 0;
     do {
         eod = fat32_get_entry(fat32, &dir_entry);
+        //printf("\nEOD(%i)", eod);
         if (!(dir_entry.attribute & FAT32_ENTRY_ATTRIB_DIR)
             && !strcmp(dir_entry.short_name, file_name)) {
+            //printf("\nEOD:M", eod);
             match = 1;
         }
     } while (match == 0 && !eod);
@@ -293,6 +297,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     if (!match) {
         return VMEM32_NULL;
     }
+    //printf("\nM");
 
     fat32_file_t *const fat32_file_handle = (fat32_file_t *const)vmem32_alloc(sizeof(fat32_file_t));
     fat32_file_handle->file_system   = fat32;

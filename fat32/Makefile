@@ -7,6 +7,7 @@ fat32fs:
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/
 	mkdir -p mnt/bin
 	cp ../apps/*.bin mnt/bin/
+	cp ../apps/*.c mnt/bin/
 	mkdir -p mnt/sys/kernel
 	mkdir -p mnt/root/sub
 	echo "test1" > mnt/test1.txt
