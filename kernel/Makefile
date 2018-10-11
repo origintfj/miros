@@ -15,6 +15,8 @@ SRC_FILES := 				\
 	src/vthread32.c			\
 	src/vmem32.c			\
 	src/syscall.c			\
+	src/spim.c				\
+	src/sd.c				\
 	src/uart.c				\
 	src/boot.c				\
 	src/miros.c				\
@@ -28,6 +30,8 @@ OBJ_FILES := 				\
 	vthread32.o				\
 	vmem32.o				\
 	syscall.o				\
+	spim.o					\
+	sd.o					\
 	uart.o					\
 	boot.o					\
 	miros.o					\

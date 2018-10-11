@@ -1,7 +1,9 @@
+SIZE_KB ?= 100
+
 all: fat32fs
 
 fat32fs:
-	dd if=/dev/zero of=fat32fs.img bs=1K count=100
+	dd if=/dev/zero of=fat32fs.img bs=1K count=$(SIZE_KB)
 	mkfs.vfat -v -F32 fat32fs.img
 	mkdir -p mnt
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/

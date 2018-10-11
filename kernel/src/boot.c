@@ -63,10 +63,14 @@ void *const gpio_time(void *const arg) {
 
 void *const shell(void *const arg);
 
+#include <sd.h>
+
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
-    vthread32_create(shell, NULL, 1024u, 0x1880);
+    //vthread32_create(shell, NULL, 1024u, 0x1880);
+
+    sd_test();
 
     //vmem32_dump_table();
 

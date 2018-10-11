@@ -32,4 +32,6 @@
 #define TIMER0_CTRL_INT_EN_MASK     2
 #define TIMER0_CTRL_EN_MASK         1
 
+#define SPIM_BASE_ADDR              0xC0000000
+
 #endif
