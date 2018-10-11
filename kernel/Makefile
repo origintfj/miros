@@ -7,7 +7,7 @@ OBJCOPY := $(TOOLCHAIN_DIR)/bin/riscv32-unknown-elf-objcopy
 OBJDUMP := $(TOOLCHAIN_DIR)/bin/riscv32-unknown-elf-objdump
 
 LD_OPTIONS := -L$(TOOLCHAIN_DIR)/lib/gcc/riscv32-unknown-elf/7.2.0/ -T miros.ld --no-relax
-CC_OPTIONS := -I./include -nostdlib -fPIC -ffreestanding -O3
+CC_OPTIONS := -march=rv32ic -I./include -nostdlib -fPIC -ffreestanding -O3
 SRC_FILES := 				\
 	src/entry.S				\
 	src/vmutex32.c			\
@@ -18,6 +18,7 @@ SRC_FILES := 				\
 	src/uart.c				\
 	src/boot.c				\
 	src/miros.c				\
+	src/vstring.c			\
 	src/fat32.c				\
 	src/shell.c
 OBJ_FILES := 				\
@@ -30,6 +31,7 @@ OBJ_FILES := 				\
 	uart.o					\
 	boot.o					\
 	miros.o					\
+	vstring.o				\
 	fat32.o					\
 	shell.o
 

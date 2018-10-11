@@ -1,8 +1,8 @@
 #include <fat32.h>
 
-#include <miros.h> // TODO - for string functions only, remove and replace
 #include <vmem32.h>
 #include <vmutex32.h>
+#include <vstring.h>
 
 #include <uart.h> // TODO - remove
 
@@ -307,6 +307,14 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     fat32_file_handle->cursor        = 0;
     return fat32_file_handle;
 }
+int const fat32_close(fat32_file_t *const fat32_file_handle) {
+    if (fat32_file_handle == VMEM32_NULL) {
+        return 1;
+    }
+    // TODO flush outstanding writes etc...
+    vmem32_free(fat32_file_handle);
+    return 0;
+}
 int const fat32_seek(fat32_file_t *stream, int long const offset, int const origin_id) {
     if (origin_id == FAT32_SEEK_CUR) {
         stream->cursor = stream->cursor + offset;
@@ -356,12 +364,4 @@ size_t const fat32_read(void *const buffer, size_t const size, size_t const coun
     //vmutex32_unlock();
 
     return (size_t const)i;
-}
-int const fat32_close(fat32_file_t *const fat32_file_handle) {
-    if (fat32_file_handle == VMEM32_NULL) {
-        return 1;
-    }
-    // TODO flush outstanding writes etc...
-    vmem32_free(fat32_file_handle);
-    return 0;
 }

@@ -1,9 +1,6 @@
 #include <miros.h>
 
 #include <uart.h>
-#include <fat32.h>
-#include <vmem32.h>
-#include <vthread32.h>
 
 #define BUFFER_SZB      64
 
@@ -14,7 +11,6 @@ char const *arg_list[BUFFER_SZB];
 
 #define PATH_SZB        256
 
-fat32_t *fat32fs;
 char path[PATH_SZB];
 
 unsigned const path_next(char str_next[], char const str_path[], unsigned i) {
@@ -42,8 +38,7 @@ int const run(int const argc, char const *const *argv) {
     if (!strcmp(argv[0], "mount")) {
         if (argc == 2) {
             void *const fs_image = (uint8_t *const)xtoi(argv[1]);
-            fat32fs = fat32_mount(fs_image);
-            if (fat32fs != NULL) {
+            if (fs_mount(fs_image) != NULL) {
                 strcpy(path, "/");
             } else {
                 strcpy(path, "");
@@ -54,9 +49,7 @@ int const run(int const argc, char const *const *argv) {
         }
         printf("\n");
     } else if (!strcmp(argv[0], "ls")) {
-        if (fat32fs == NULL) {
-            printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
-        } else if (argc == 1 || argc == 2) {
+        if (argc == 1 || argc == 2) {
             fat32_entry_t fat32_entry;
             char temp_path[FAT32_MAX_PATH_LENGTH];
 
@@ -71,8 +64,8 @@ int const run(int const argc, char const *const *argv) {
                 }
             }
 
-            if (!fat32_dir_set(fat32fs, &fat32_entry, temp_path)) {
-                while (!fat32_get_entry(fat32fs, &fat32_entry)) {
+            if (!fs_dir_set(&fat32_entry, temp_path)) {
+                while (!fs_get_entry(&fat32_entry)) {
                     if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
                         printf("\nDIR     ");
                     } else {
@@ -99,15 +92,15 @@ int const run(int const argc, char const *const *argv) {
                     strcpy(temp_path, path);
                     strcat(temp_path, argv[1]);
                 }
-                fat32_file_t *ifile = fat32_open(fat32fs, temp_path);
+                fat32_file_t *ifile = fopen(temp_path);
                 if (ifile != NULL) {
-                    fat32_seek(ifile, 0, FAT32_SEEK_END);
-                    unsigned ifile_len = fat32_tell(ifile);
+                    fseek(ifile, 0, FAT32_SEEK_END);
+                    unsigned ifile_len = ftell(ifile);
                     char *const buffer = (char *const)malloc(ifile_len * sizeof(char) + 1);
-                    fat32_seek(ifile, 0, FAT32_SEEK_SET);
-                    fat32_read(buffer, sizeof(char), ifile_len, ifile);
+                    fseek(ifile, 0, FAT32_SEEK_SET);
+                    fread(buffer, sizeof(char), ifile_len, ifile);
                     buffer[ifile_len] = '\0';
-                    fat32_close(ifile);
+                    fclose(ifile);
                     printf("\n%s", buffer);
                     free(buffer);
                 } else {
@@ -120,9 +113,7 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\ncat <file name>");
         }
     } else if (!strcmp(argv[0], "cd")) {
-        if (fat32fs == NULL) {
-            printf("\n%s: Mount a file system using 'mount' and try again", argv[0]);
-        } else if (argc == 2) {
+        if (argc == 2) {
             unsigned i;
             fat32_entry_t fat32_entry;
             char temp_path[PATH_SZB];
@@ -150,7 +141,7 @@ int const run(int const argc, char const *const *argv) {
             //printf("\ncd to '%s'", temp_path);
             if (strlen(temp_path) >= PATH_SZB) {
                 printf("\n%s: Path too long", argv[0]);
-            } else if (!fat32_dir_set(fat32fs, &fat32_entry, temp_path)) {
+            } else if (!fs_dir_set(&fat32_entry, temp_path)) {
                 strcpy(path, temp_path);
             } else {
                 printf("\n%s: No such directory", argv[0]);
@@ -253,8 +244,7 @@ int const run(int const argc, char const *const *argv) {
                     printf("done!\nAddress = %X (HEX)", buffer);
                     if (argc == 3) {
                         if (!strcmp(argv[2], "m")) {
-                            fat32fs = fat32_mount(buffer);
-                            if (fat32fs != NULL) {
+                            if (fs_mount(buffer) != NULL) {
                                 strcpy(path, "/");
                             } else {
                                 strcpy(path, "");
@@ -298,16 +288,16 @@ int const start(int const argc, char const *const *const argv) {
     if (strlen(temp_path) + strlen(argv[0]) < FAT32_MAX_PATH_LENGTH) {
         strcat(temp_path, argv[0]);
 
-        fat32_file_t *ifile = fat32_open(fat32fs, argv[0]);
+        fat32_file_t *ifile = fopen(argv[0]);
 
         if (ifile != NULL) {
-            fat32_seek(ifile, 0, FAT32_SEEK_END);
-            unsigned ifile_len = fat32_tell(ifile);
-            char *const buffer = (char *const)vmem32_alloc(ifile_len * sizeof(char));
-            fat32_seek(ifile, 0, FAT32_SEEK_SET);
-            fat32_read(buffer, sizeof(char), ifile_len, ifile);
+            fseek(ifile, 0, FAT32_SEEK_END);
+            unsigned ifile_len = ftell(ifile);
+            char *const buffer = (char *const)malloc(ifile_len * sizeof(char));
+            fseek(ifile, 0, FAT32_SEEK_SET);
+            fread(buffer, sizeof(char), ifile_len, ifile);
             buffer[ifile_len] = '\0';
-            fat32_close(ifile);
+            fclose(ifile);
 
             //vthread32_create(buffer, NULL, 1024u, 0x1880);
 

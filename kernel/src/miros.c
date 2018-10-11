@@ -67,72 +67,91 @@ uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 }
 //--------------------------------------------------------------
-// string functions
+// file system functions
 //--------------------------------------------------------------
-int const strcmp(char const str1[], char const str2[]) {
-    int i;
-    for (i = 0; str1[i] == str2[i] && str1[i] != '\0'; ++i);
-    return str1[i] != str2[i];
-}
-size_t const strlen(char const str[]) {
-    unsigned i;
-    for (i = 0; str[i] != '\0'; ++i);
-    return (size_t const)i;
-}
-char *const strcpy(char str_dest[], char const str_src[]) {
-    int i;
-    for (i = 0; str_src[i] != '\0'; ++i) {
-        str_dest[i] = str_src[i];
-    }
-    str_dest[i] = '\0';
-    return str_dest;
-}
-char *const strcat(char str_dest[], char const str_src[]) {
-    unsigned i, j;
-    for (i = 0; str_dest[i] != '\0'; ++i);
-    for (j = 0; str_src[j] != '\0'; ++j, ++i) {
-        str_dest[i] = str_src[j];
-    }
-    str_dest[i] = '\0';
-    return str_dest;
-}
-int const atoi(char const str[]) {
-    int num = 0;
-    int neg = 0;
-    int i;
+fat32_t *const fs_mount(void *const fat32_img) {
+    uint32_t form[2];
 
-    i = 0;
-    if (str[i] == '\0') {
-        return 0;
-    } else if (str[i] == '-') {
-        neg = 1;
-        ++i;
-    } else if (str[i] == '+') {
-        ++i;
-    }
-    for (; str[i] != '\0'; ++i) {
-        num *= 10;
-        num += (int const)(str[i] - '0');
-    }
-    return (neg ? -num : num);
+    form[0] = SYSCALL_FAT32_MOUNT;
+    form[1] = (uint32_t const)fat32_img;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (fat32_t *const)(form[1]);
 }
-int const xtoi(char const str[]) {
-    int i;
-    int digit;
-    int out = 0;
+int const fs_dir_set(fat32_entry_t *const dir_entry, char const path[]) {
+    uint32_t form[3];
 
-    for (i = 0; str[i] != '\0'; ++i) {
-        if (str[i] >= '0' && str[i] <= '9') {
-            digit = (int const)(str[i] - '0');
-        } else if (str[i] >= 'a' && str[i] <= 'f') {
-            digit = (int const)(str[i] - 'a' + 10);
-        } else if (str[i] >= 'A' && str[i] <= 'F') {
-            digit = (int const)(str[i] - 'A' + 10);
-        }
+    form[0] = SYSCALL_FAT32_DIR_SET;
+    form[1] = (uint32_t const)dir_entry;
+    form[2] = (uint32_t const)path;
 
-        out = out << 4;
-        out = out | (digit & 0xff);
-    }
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 
-    return out;
+    return (int const)(form[1]);
+}
+int const fs_get_entry(fat32_entry_t *const fat32_entry) {
+    uint32_t form[2];
+
+    form[0] = SYSCALL_FAT32_GET_ENTRY;
+    form[1] = (uint32_t const)fat32_entry;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (int const)(form[1]);
+}
+fat32_file_t *const fopen(char const path[]) {
+    uint32_t form[2];
+
+    form[0] = SYSCALL_FAT32_OPEN;
+    form[1] = (uint32_t const)path;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (fat32_file_t *const)(form[1]);
+}
+int const fclose(fat32_file_t *const fat32_file_handle) {
+    uint32_t form[2];
+
+    form[0] = SYSCALL_FAT32_CLOSE;
+    form[1] = (uint32_t const)fat32_file_handle;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (int const)(form[1]);
+}
+int const fseek(fat32_file_t *stream, int long const offset, int const origin_id) {
+    uint32_t form[4];
+
+    form[0] = SYSCALL_FAT32_SEEK;
+    form[1] = (uint32_t const)stream;
+    form[2] = (uint32_t const)offset;
+    form[3] = (uint32_t const)origin_id;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (int const)(form[1]);
+}
+int long const ftell(fat32_file_t *const stream) {
+    uint32_t form[2];
+
+    form[0] = SYSCALL_FAT32_TELL;
+    form[1] = (uint32_t const)stream;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (int long const)(form[1]);
+}
+size_t const fread(void *const buffer, size_t const size, size_t const count, fat32_file_t *stream) {
+    uint32_t form[5];
+
+    form[0] = SYSCALL_FAT32_READ;
+    form[1] = (uint32_t const)buffer;
+    form[2] = (uint32_t const)size;
+    form[3] = (uint32_t const)count;
+    form[4] = (uint32_t const)stream;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (size_t const)(form[1]);
 }

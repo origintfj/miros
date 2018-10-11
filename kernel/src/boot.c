@@ -7,6 +7,10 @@
 
 #define STACK_SZW   1000u
 
+// TODO - move this
+#include <fat32.h>
+fat32_t *fat32_root_fs;
+
 extern uint8_t _mpool_start[];
 
 uint64_t volatile systime_us;
@@ -68,7 +72,45 @@ void *const boot_thread(void *const arg) {
 
     return NULL;
 }
+/*
+int const execute(int const argc, char const *const *const argv,
+                  char const *const buffer) {
+    char *str_buffer;
+    void *arg_buffer;
+    char const **arg_vector;
+    int i;
+    int error;
 
+    arg_buffer = vmem32_alloc((strlen(buffer) + 1) * (1 + sizeof(char *)));
+    //printf("\nbuffer = %X\n", (uint32_t const)arg_buffer);
+
+    // set the str_buffer pointer to the start of the arg_buffer
+    str_buffer = (char *const)arg_buffer;
+    // set the arg_vector pointer to that section of the arg_buffer
+    arg_vector = (char const **const)((char *const)arg_buffer + BUFFER_SZB);
+    // copy the string to the str_buffer
+    for (i = 0; buffer[i] != '\0'; ++i) {
+        str_buffer[i] = buffer[i];
+    }
+    str_buffer[i] = '\0';
+    // copy the argv to the argv
+    for (i = 0; i < argc; ++i) {
+        arg_vector[i] = argv[i] + (arg_vector - argv);
+    }
+
+    //printf("\nExecuting from the arg list (count = %i)\n", argc);
+    for (i = 0; i < argc; ++i) {
+        //printf("'%s'\n", argv[i]);
+    }
+    error = run(argc, argv);
+    if (error) {
+        start(argc, argv);
+    }
+
+    vmem32_free(arg_buffer);
+    return error;
+}
+*/
 #include <syscall.h>
 
 void trap_excp(uint32_t *const argv, int32_t const mcause) {
