@@ -63,6 +63,7 @@ int const run(int const argc, char const *const *argv) {
                     strcat(temp_path, "/");
                 }
             }
+            strupr(temp_path, temp_path);
 
             if (!fs_dir_set(&fat32_entry, temp_path)) {
                 while (!fs_get_entry(&fat32_entry)) {
@@ -72,7 +73,7 @@ int const run(int const argc, char const *const *argv) {
                         printf("\n        ");
                     }
                     printf("%c%s%c", fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? '[' : '\'',
-                                     fat32_entry.short_name,
+                                     strlwr(fat32_entry.short_name, fat32_entry.short_name),
                                      fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? ']' : '\'');//,
                                      //fat32_entry->first_cluster);
                 }
@@ -92,6 +93,8 @@ int const run(int const argc, char const *const *argv) {
                     strcpy(temp_path, path);
                     strcat(temp_path, argv[1]);
                 }
+                strupr(temp_path, temp_path);
+
                 fat32_file_t *ifile = fopen(temp_path);
                 if (ifile != NULL) {
                     fseek(ifile, 0, FAT32_SEEK_END);
@@ -137,11 +140,13 @@ int const run(int const argc, char const *const *argv) {
                     //printf("after cat='%s'", temp_path);
                 }
             }
+            strupr(temp_path, temp_path);
 
             //printf("\ncd to '%s'", temp_path);
             if (strlen(temp_path) >= PATH_SZB) {
                 printf("\n%s: Path too long", argv[0]);
             } else if (!fs_dir_set(&fat32_entry, temp_path)) {
+                strlwr(temp_path, temp_path);
                 strcpy(path, temp_path);
             } else {
                 printf("\n%s: No such directory", argv[0]);

@@ -27,6 +27,22 @@ char *const strcat(char str_dest[], char const str_src[]) {
     str_dest[i] = '\0';
     return str_dest;
 }
+char *const strlwr(char str_dest[], char const str_src[]) {
+    int i;
+    for (i = 0; str_src[i] != '\0'; ++i) {
+        str_dest[i] = (str_src[i] >= 'A' && str_src[i] <= 'Z' ? str_src[i] - 'A' + 'a' : str_src[i]);
+    }
+    str_dest[i] = '\0';
+    return str_dest;
+}
+char *const strupr(char str_dest[], char const str_src[]) {
+    int i;
+    for (i = 0; str_src[i] != '\0'; ++i) {
+        str_dest[i] = (str_src[i] >= 'a' && str_src[i] <= 'z' ? str_src[i] - 'a' + 'A' : str_src[i]);
+    }
+    str_dest[i] = '\0';
+    return str_dest;
+}
 int const atoi(char const str[]) {
     int num = 0;
     int neg = 0;
