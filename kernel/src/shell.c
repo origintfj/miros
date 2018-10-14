@@ -35,20 +35,7 @@ char *const path_strip_last(char str_path[]) {
 int const run(int const argc, char const *const *argv) {
     int error = 0;
 
-    if (!strcmp(argv[0], "mount")) {
-        if (argc == 1) {
-            sd_context_t *const sd_context = sd_context_create(SPIM_BASE_ADDR, CLK_FREQ);
-            if (fs_mount(sd_context) != NULL) {
-                strcpy(path, "/");
-            } else {
-                strcpy(path, "");
-                printf("\nUnsupported file system type");
-            }
-        } else {
-            printf("\nUSAGE:\nmount <pointer to partition image>");
-        }
-        printf("\n");
-    } else if (!strcmp(argv[0], "ls")) {
+    if (!strcmp(argv[0], "ls")) {
         if (argc == 1 || argc == 2) {
             fat32_entry_t fat32_entry;
             char temp_path[FAT32_MAX_PATH_LENGTH];
@@ -381,7 +368,7 @@ void print_prompt() {
 void *const shell(void *const arg) {
     char c;
 
-    path[0] = '\0';
+    strcpy(path, "/");
 
     printf("\n");
     print_prompt();

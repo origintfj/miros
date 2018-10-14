@@ -201,20 +201,19 @@ fat32_t *const fat32_mount(sd_context_t *const sd_context) {
     if (fat32 == VMEM32_NULL) {
         return VMEM32_NULL;
     }
+    fat32->dev_buffer.sd_context = sd_context;
     fat32->dev_buffer.dev_block_number = 0;
     fat32->dev_buffer.dev_block_buffer = (uint8_t *const)vmem32_alloc(DEV_BLOCK_BUFFER_SZB);
     if (fat32->dev_buffer.dev_block_buffer == VMEM32_NULL) {
         vmem32_free(fat32);
         return VMEM32_NULL;
     }
-    error |= sd_seek(fat32->dev_buffer.sd_context, 0, SD_SEEK_SET);
+    error |= sd_seek(sd_context, 0, SD_SEEK_SET);
     uint32_t const read_count = sd_read(fat32->dev_buffer.dev_block_buffer, sizeof(uint8_t),
                                         DEV_BLOCK_BUFFER_SZB, sd_context);
     if (read_count != DEV_BLOCK_BUFFER_SZB) {
         error |= 1;
     }
-
-    fat32->dev_buffer.sd_context = sd_context;
 
     fat32->sector_szb             = fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t), 11);
     fat32->cluster_sz_sectors     = fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), 13);

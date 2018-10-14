@@ -68,6 +68,23 @@ void *const shell(void *const arg);
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
+
+    printf("\nCreating SD Context for device @ %X...", SPIM_BASE_ADDR);
+    sd_context_t *const sd_context = sd_context_create(SPIM_BASE_ADDR, CLK_FREQ);
+    if (sd_context == NULL) {
+        printf("FAILED!");
+        return NULL;
+    }
+    printf("SUCCESSS (%X)", (uint32_t const)sd_context);
+
+    printf("\nAttempting FAT32 file system mount with SD context %X...", (uint32_t const)sd_context);
+    fat32_root_fs = fat32_mount(sd_context);
+    if (fat32_root_fs == NULL) {
+        printf("FAILED!");
+        return NULL;
+    }
+    printf("SUCCESSS (%X)", (uint32_t const)fat32_root_fs);
+
     vthread32_create(shell, NULL, 1024u, 0x1880);
 
     //vmem32_dump_table();

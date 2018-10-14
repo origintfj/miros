@@ -82,18 +82,19 @@ static int const sd_init(uint32_t const spim_base_addr, unsigned const cphb) {
     uint32_t r1, r3;
     unsigned i;
 
+    //printf("SD Card init:\n", r1);
     spim_init(spim_base_addr, cphb, 0, 0);
 
     sd_send_dummy_bytes(spim_base_addr, 20);
     r1 = sd_send__cmd_r1(spim_base_addr, sd__cmd00);
-    printf("CMD00: r1=0x%X\n", r1);
+    //printf(" CMD00: r1=0x%X\n", r1);
     r1 = sd_send__cmd_r3(spim_base_addr, sd__cmd08, &r3);
-    printf("CMD08: r1=0x%X, r3=0x%X\n", r1, r3);
+    //printf(" CMD08: r1=0x%X, r3=0x%X\n", r1, r3);
     if (r1 == 0x01) { // version 2 card
     } else { // version 1 card ?
     }
     r1 = sd_send__cmd_r3(spim_base_addr, sd__cmd58, &r3);
-    printf("CMD58: r1=0x%X, r3=0x%X\n", r1, r3);
+    //printf(" CMD58: r1=0x%X, r3=0x%X\n", r1, r3);
 
 /*
     r1 = sd_send_acmd_r3(spim_base_addr, sd_acmd41, &r3);
@@ -102,9 +103,9 @@ static int const sd_init(uint32_t const spim_base_addr, unsigned const cphb) {
 
     for (r1 = 1; r1 != 0; ) {
         r1 = sd_send__cmd_r1(spim_base_addr, sd__cmd55);
-        printf("CMD55: r1=0x%X\n", r1);
+        //printf(" CMD55: r1=0x%X\n", r1);
         r1 = sd_send__cmd_r3(spim_base_addr, sd_acmd41, &r3);
-        printf("ACMD41: r1=0x%X, r3=0x%X\n", r1, r3);
+        //printf(" ACMD41: r1=0x%X, r3=0x%X\n", r1, r3);
     }
 
     return 0;
@@ -208,9 +209,7 @@ size_t const sd_read(void *const buffer, size_t const size,
 
     unsigned i;
     for (i = 0; i < (unsigned const)size * (unsigned const)count; ) {
-//printf("outer loop\n");
         if (sector != sd_context->buffered_sector) {
-//printf("block read\n");
             sd_block_read(sd_context->spim_base_addr, sd_context->sector_buffer, sector);
             sd_context->buffered_sector = sector;
         }
@@ -228,64 +227,4 @@ size_t const sd_read(void *const buffer, size_t const size,
                        ;
 
     return (size_t const)count;
-}
-
-
-#include <soc.h>
-
-uint32_t *sd_buffer;
-
-uint32_t const spim_base_addr = SPIM_BASE_ADDR;
-
-void sd_test() {
-    size_t bytes_read;
-
-    sd_context_t *const sd_context = sd_context_create(SPIM_BASE_ADDR, CLK_FREQ);
-    printf("sd_context=%X\n", (uint32_t const)sd_context);
-
-    sd_buffer = vmem32_alloc(4024);
-    sd_seek(sd_context, 510, SD_SEEK_SET);
-    bytes_read = sd_read(sd_buffer, sizeof(uint32_t), 1024, sd_context);
-    printf("bytes_read=%u\n", (uint32_t const)bytes_read);
-
-    unsigned i;
-    for (i = 0; i < 1024; ++i) {
-        printf("%X%s", sd_buffer[i], ((i + 1) & 7 ? " " : "\n"));
-    }
-
-
-
-
-/*
-    //for (r1 = 1; r1 & 0x01; ) {
-        spim_cs_assert(SPIM_BASE_ADDR);
-        sd_send_cmd(SPIM_BASE_ADDR, sd_cmd01);
-        r1 = sd_get_r1(SPIM_BASE_ADDR, 0);
-        spim_cs_deassert(SPIM_BASE_ADDR);
-        sd_send_postamble(SPIM_BASE_ADDR);
-        printf("CMD01: 0x%X\n", r1);
-    //}
-    spim_cs_assert(SPIM_BASE_ADDR);
-    sd_send_cmd(SPIM_BASE_ADDR, sd_cmd08);
-    r1 = sd_get_r1(SPIM_BASE_ADDR, 0);
-    spim_cs_deassert(SPIM_BASE_ADDR);
-    sd_send_postamble(SPIM_BASE_ADDR);
-    printf("CMD08: 0x%X\n", r1);
-
-    for (ocr = 0; !(ocr >> 31); ) {
-        spim_cs_assert(SPIM_BASE_ADDR);
-        sd_send_cmd(SPIM_BASE_ADDR, sd_cmd58);
-        r1 = sd_get_r1(SPIM_BASE_ADDR, 0);
-        spim_cs_deassert(SPIM_BASE_ADDR);
-        sd_send_postamble(SPIM_BASE_ADDR);
-        printf("CMD55: 0x%X\n", r1);
-
-        spim_cs_assert(SPIM_BASE_ADDR);
-        sd_send_cmd(SPIM_BASE_ADDR, sd_cmd58);
-        ocr = sd_get_r3(SPIM_BASE_ADDR, 0, &r1);
-        spim_cs_deassert(SPIM_BASE_ADDR);
-        sd_send_postamble(SPIM_BASE_ADDR);
-        printf("CMD41: 0x%X, 0x%x\n", r1, ocr);
-    }
-*/
 }
