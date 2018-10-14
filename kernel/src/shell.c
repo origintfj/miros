@@ -31,14 +31,14 @@ char *const path_strip_last(char str_path[]) {
     str_path[i] = '\0';
     return str_path;
 }
-
+#include <soc.h> // TODO - remove
 int const run(int const argc, char const *const *argv) {
     int error = 0;
 
     if (!strcmp(argv[0], "mount")) {
-        if (argc == 2) {
-            void *const fs_image = (uint8_t *const)xtoi(argv[1]);
-            if (fs_mount(fs_image) != NULL) {
+        if (argc == 1) {
+            sd_context_t *const sd_context = sd_context_create(SPIM_BASE_ADDR, CLK_FREQ);
+            if (fs_mount(sd_context) != NULL) {
                 strcpy(path, "/");
             } else {
                 strcpy(path, "");
@@ -204,6 +204,7 @@ int const run(int const argc, char const *const *argv) {
         } else {
             printf("\nUSAGE:\nfree <address of container to be freed>\n");
         }
+/*
     } else if (!strcmp(argv[0], "upload")) { // TODO - clean up
         if (argc == 2 || argc == 3) {
             unsigned const size = atoi(argv[1]);
@@ -265,6 +266,7 @@ int const run(int const argc, char const *const *argv) {
             printf("\nUSAGE:\nupload <size (bytes)>\nThen wait for prompt.");
         }
         printf("\n");
+*/
     } else if (!strcmp(argv[0], "ut")) { // TODO - fix this
         if (argc != 1) {
             printf("\nToo many arguments.");

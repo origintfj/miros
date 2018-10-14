@@ -69,11 +69,11 @@ uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg
 //--------------------------------------------------------------
 // file system functions
 //--------------------------------------------------------------
-fat32_t *const fs_mount(void *const fat32_img) {
+fat32_t *const fs_mount(sd_context_t *const sd_context) {
     uint32_t form[2];
 
     form[0] = SYSCALL_FAT32_MOUNT;
-    form[1] = (uint32_t const)fat32_img;
+    form[1] = (uint32_t const)sd_context;
 
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 

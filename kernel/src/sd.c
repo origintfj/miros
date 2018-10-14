@@ -65,7 +65,8 @@ static uint32_t const sd_send__cmd_r1(uint32_t const spim_base_addr, uint8_t con
 
     return r1;
 }
-static uint32_t const sd_send__cmd_r3(uint32_t const spim_base_addr, uint8_t const *const cmd, uint32_t *const rsp) {
+static uint32_t const sd_send__cmd_r3(uint32_t const spim_base_addr, uint8_t const *const cmd,
+                                      uint32_t *const rsp) {
     uint32_t r1;
 
     sd_send_dummy_bytes(spim_base_addr, 1);

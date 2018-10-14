@@ -6,12 +6,22 @@
 
 #include <uart.h> // TODO - remove
 
-#define FAT32_CLUSTER_ERROR     -1
-#define FAT32_CLUSTER_EOF       1
-#define FAT32_CLUSTER_USED      0
+#define DEV_BLOCK_BUFFER_SZBX       9
+#define DEV_BLOCK_BUFFER_SZB        (1 << DEV_BLOCK_BUFFER_SZBX)
+#define DEV_BLOCK_BUFFER_SZ_MASK    (DEV_BLOCK_BUFFER_SZB - 1)
+
+#define FAT32_CLUSTER_ERROR         -1
+#define FAT32_CLUSTER_EOF           1
+#define FAT32_CLUSTER_USED          0
+
+typedef struct {
+    sd_context_t *sd_context; // change to general file handle later
+    uint32_t dev_block_number;
+    uint8_t *dev_block_buffer;
+} dev_buffer_t;
 
 struct fat32 {
-    uint8_t *fs_img;
+    dev_buffer_t dev_buffer;
     //
     uint32_t sector_szb;
     uint32_t cluster_sz_sectors;
@@ -38,16 +48,30 @@ struct fat32_file {
     uint32_t cursor_offset;
 };
 
-static uint32_t const read8(uint8_t const *const buffer, uint32_t const offset) {
-    return (uint32_t const)buffer[offset];
-}
-static uint32_t const read16(uint8_t const *const buffer, uint32_t const offset) {
-    return ((uint32_t const)buffer[offset + 1] << 8) |
-           ((uint32_t const)buffer[offset + 0] << 0) ;
-}
-static uint32_t const read32(uint8_t const *const buffer, uint32_t const offset) {
-    return ((uint32_t const)buffer[offset + 3] << 24) | ((uint32_t const)buffer[offset + 2] << 16) |
-           ((uint32_t const)buffer[offset + 1] <<  8) | ((uint32_t const)buffer[offset + 0] <<  0) ;
+static uint32_t const fat32_read_data(dev_buffer_t *const dev_buffer,
+                                      size_t const size, uint32_t const offset) {
+    uint32_t rd_data = 0;
+    uint32_t block_number = offset >> DEV_BLOCK_BUFFER_SZBX;
+    uint32_t block_offset = offset  & DEV_BLOCK_BUFFER_SZ_MASK;
+
+    unsigned i;
+    for (i = 0; i < (unsigned const)size; ++i, ++block_offset) {
+        if (block_offset == DEV_BLOCK_BUFFER_SZB) {
+            ++block_number;
+            block_offset = 0;
+        }
+        // TODO - add error checking (device not available etc.)
+        if (dev_buffer->dev_block_number != block_number) {
+            sd_seek(dev_buffer->sd_context, (uint64_t const)offset, SD_SEEK_SET);
+            sd_read(dev_buffer->dev_block_buffer, sizeof(uint8_t),
+                    DEV_BLOCK_BUFFER_SZB, dev_buffer->sd_context);
+            dev_buffer->dev_block_number = block_number;
+        }
+
+        rd_data |= ((uint32_t const)dev_buffer->dev_block_buffer[block_offset]) << (i << 3);
+    }
+
+    return rd_data;
 }
 static void dir_set_root(fat32_t const *const fat32, fat32_entry_t *const fat32_entry) {
     fat32_entry->dir_first_cluster = fat32->root_dir_first_cluster;
@@ -60,10 +84,11 @@ static void dir_set(fat32_entry_t *const fat32_entry, uint32_t const dir_first_c
 static void dir_reset(fat32_entry_t *const fat32_entry) {
     fat32_entry->entry_number = 0;
 }
-static int const get_next_cluster(fat32_t const *const fat32,
+static int const get_next_cluster(fat32_t *const fat32,
                                   uint32_t *const next_cluster, uint32_t const current_cluster) {
-    uint32_t const cluster = read32(fat32->fs_img, fat32->fat_begin_lba * fat32->sector_szb
-                                                   + (current_cluster << 2));
+    uint32_t const cluster = fat32_read_data(&fat32->dev_buffer, sizeof(uint32_t),
+                                             fat32->fat_begin_lba * fat32->sector_szb
+                                             + (current_cluster << 2));
     *next_cluster = cluster & 0x0fffffff;
     if (cluster == 0) {
         return FAT32_CLUSTER_ERROR;
@@ -91,7 +116,7 @@ static int const get_coords(fat32_file_t *stream) {
 
     return error;
 }
-static int const get_entry_i(fat32_t const *const fat32, fat32_entry_t *const fat32_entry,
+static int const get_entry_i(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
                              uint32_t const entry_number) {
     uint32_t entry_offset;
     uint32_t cluster;
@@ -117,7 +142,7 @@ static int const get_entry_i(fat32_t const *const fat32, fat32_entry_t *const fa
     unsigned j;
 
     for (i = 0, j = 0; i < 11; ++i) {
-        char const c = (char const)read8(fat32->fs_img, record_offset + i);
+        char const c = (char const)fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), record_offset + i);
         if (c != ' ') {
             if (i > 7 && !in_ext) {
                 in_ext = 1;
@@ -127,16 +152,17 @@ static int const get_entry_i(fat32_t const *const fat32, fat32_entry_t *const fa
         }
     }
     fat32_entry->short_name[j] = '\0';
-    fat32_entry->attribute     = read8(fat32->fs_img, record_offset + 11);
-    fat32_entry->first_cluster = read16(fat32->fs_img, record_offset + 26);
+    fat32_entry->attribute     = fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), record_offset + 11);
+    fat32_entry->first_cluster = fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t), record_offset + 26);
     fat32_entry->first_cluster = fat32_entry->first_cluster
-                               | (read16(fat32->fs_img, record_offset + 20) << 16);
+                               | (fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t),
+                                                  record_offset + 20) << 16);
     //printf("\nRD:%X", record_offset);
-    fat32_entry->file_szb      = read32(fat32->fs_img, record_offset + 28);
+    fat32_entry->file_szb      = fat32_read_data(&fat32->dev_buffer, sizeof(uint32_t), record_offset + 28);
 
     return fat32_entry->short_name[0] == 0;
 }
-static char const *const dir_descend(fat32_t const *const fat32, fat32_entry_t *const fat32_entry,
+static char const *const dir_descend(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
                                      char const dir_name[]) {
     int match = 0;
     int i;
@@ -167,7 +193,7 @@ static char const *const dir_descend(fat32_t const *const fat32, fat32_entry_t *
 //--------------------------------------------------------------
 // externally visible functions
 //--------------------------------------------------------------
-fat32_t *const fat32_mount(void *const fat32_img) {
+fat32_t *const fat32_mount(sd_context_t *const sd_context) {
     unsigned i;
     int error = 0;
 
@@ -175,20 +201,32 @@ fat32_t *const fat32_mount(void *const fat32_img) {
     if (fat32 == VMEM32_NULL) {
         return VMEM32_NULL;
     }
+    fat32->dev_buffer.dev_block_number = 0;
+    fat32->dev_buffer.dev_block_buffer = (uint8_t *const)vmem32_alloc(DEV_BLOCK_BUFFER_SZB);
+    if (fat32->dev_buffer.dev_block_buffer == VMEM32_NULL) {
+        vmem32_free(fat32);
+        return VMEM32_NULL;
+    }
+    error |= sd_seek(fat32->dev_buffer.sd_context, 0, SD_SEEK_SET);
+    uint32_t const read_count = sd_read(fat32->dev_buffer.dev_block_buffer, sizeof(uint8_t),
+                                        DEV_BLOCK_BUFFER_SZB, sd_context);
+    if (read_count != DEV_BLOCK_BUFFER_SZB) {
+        error |= 1;
+    }
 
-    fat32->fs_img = (uint8_t *const)fat32_img;
+    fat32->dev_buffer.sd_context = sd_context;
 
-    fat32->sector_szb             = read16(fat32_img, 11);
-    fat32->cluster_sz_sectors     = read8( fat32_img, 13);
-    fat32->rsvd_sector_count      = read16(fat32_img, 14); // FAT32 : 32
-    fat32->fat_count              = read8( fat32_img, 16);
-    fat32->fat_sz_sectors         = read32(fat32_img, 36);
-    fat32->root_dir_first_cluster = read32(fat32_img, 44);
+    fat32->sector_szb             = fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t), 11);
+    fat32->cluster_sz_sectors     = fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), 13);
+    fat32->rsvd_sector_count      = fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t), 14); // FAT32 : 32
+    fat32->fat_count              = fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), 16);
+    fat32->fat_sz_sectors         = fat32_read_data(&fat32->dev_buffer, sizeof(uint32_t), 36);
+    fat32->root_dir_first_cluster = fat32_read_data(&fat32->dev_buffer, sizeof(uint32_t), 44);
     for (i = 0; i < 8; ++i) {
-        fat32->fs_type[i] = read8(fat32_img, 82 + i);
+        fat32->fs_type[i] = fat32_read_data(&fat32->dev_buffer, sizeof(uint8_t), 82 + i);
     }
     fat32->fs_type[8] = '\0';
-    fat32->signature  = read16(fat32_img, 510);
+    fat32->signature  = fat32_read_data(&fat32->dev_buffer, sizeof(uint16_t), 510);
 
     fat32->fat_begin_lba     = fat32->rsvd_sector_count;
     fat32->cluster_begin_lba = fat32->rsvd_sector_count + (fat32->fat_count * fat32->fat_sz_sectors);
@@ -201,13 +239,14 @@ fat32_t *const fat32_mount(void *const fat32_img) {
     error = error | ((fat32->signature != 0xaa55) ? 2 : 0);
 
     if (error) {
+        vmem32_free(fat32->dev_buffer.dev_block_buffer);
         vmem32_free(fat32);
         return VMEM32_NULL;
     }
 
     return fat32;
 }
-int const fat32_dir_set(fat32_t const *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
+int const fat32_dir_set(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
     // TODO - remove requirment for trailing '/'
     if (fat32 == VMEM32_NULL) {
         return 1;
@@ -236,7 +275,7 @@ int const fat32_dir_set(fat32_t const *const fat32, fat32_entry_t *const dir_ent
 
     return 0;
 }
-int const fat32_get_entry(fat32_t const *const fat32, fat32_entry_t *const fat32_entry) {
+int const fat32_get_entry(fat32_t *const fat32, fat32_entry_t *const fat32_entry) {
     uint32_t entry_number = fat32_entry->entry_number;
 
     do {
@@ -353,7 +392,7 @@ size_t const fat32_read(void *const buffer, size_t const size, size_t const coun
             cursor_offset = 0;
             state = get_next_cluster(stream->file_system, &cursor_cluster, cursor_cluster);
         }
-        ((uint8_t *const)buffer)[i] = read8(stream->file_system->fs_img,
+        ((uint8_t *const)buffer)[i] = fat32_read_data(&stream->file_system->dev_buffer, sizeof(uint8_t),
                                             ((stream->file_system->cluster_sz_sectors
                                               * (cursor_cluster - 2) + stream->file_system->cluster_begin_lba)
                                              * stream->file_system->sector_szb)

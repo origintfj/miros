@@ -9,7 +9,7 @@
 
 // TODO - move this
 #include <fat32.h>
-fat32_t *fat32_root_fs;
+fat32_t *fat32_root_fs; // TODO - move to time module
 
 extern uint8_t _mpool_start[];
 
@@ -68,9 +68,7 @@ void *const shell(void *const arg);
 void *const boot_thread(void *const arg) {
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
-    //vthread32_create(shell, NULL, 1024u, 0x1880);
-
-    sd_test();
+    vthread32_create(shell, NULL, 1024u, 0x1880);
 
     //vmem32_dump_table();
 

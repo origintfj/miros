@@ -2,6 +2,7 @@
 
 #include <vmem32.h>
 #include <vthread32.h>
+#include <sd.h>
 #include <fat32.h>
 
 uint64_t const time_us(void); // TODO - move to time module
@@ -25,7 +26,7 @@ void syscall(uint32_t *const argv) {
                                                    (void *const)argv[2], 1024u, 0x0080);
     } else if (argv[0] == SYSCALL_FAT32_MOUNT) {
         //argv[1] = (uint32_t const)fat32_mount((void *const)argv[1]); // TODO
-        fat32_root_fs = fat32_mount((void *const)argv[1]);
+        fat32_root_fs = fat32_mount((sd_context_t *const)argv[1]);
     } else if (argv[0] == SYSCALL_FAT32_UMOUNT) { // TODO - implement
     } else if (argv[0] == SYSCALL_FAT32_DIR_SET) {
         argv[1] = (uint32_t const)fat32_dir_set(fat32_root_fs, (fat32_entry_t *const)argv[1],
