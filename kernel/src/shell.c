@@ -31,7 +31,6 @@ char *const path_strip_last(char str_path[]) {
     str_path[i] = '\0';
     return str_path;
 }
-#include <soc.h> // TODO - remove
 int const run(int const argc, char const *const *argv) {
     int error = 0;
 
@@ -372,7 +371,6 @@ void *const shell(void *const arg) {
 
     printf("\n");
     print_prompt();
-    uart_flush_rx();
 
     buffer_index = 0;
 
@@ -410,7 +408,6 @@ void *const shell(void *const arg) {
             printf("\n");
             print_prompt();
         } else if (buffer_index > 0 && c == 0x08) { // backspace
-            uart_flush_rx();
             --buffer_index;
             buffer[buffer_index] = '\0';
             printf("\r");

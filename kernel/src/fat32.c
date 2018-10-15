@@ -279,7 +279,8 @@ int const fat32_get_entry(fat32_t *const fat32, fat32_entry_t *const fat32_entry
 
     do {
         fat32_get_entry_i(fat32, fat32_entry, entry_number++);
-    } while (fat32_entry->short_name[0] != 0 && (fat32_entry->attribute & 0xf) == 0xf);
+    } while ((fat32_entry->short_name[0] != 0x00 && (fat32_entry->attribute & 0xf) == 0xf)
+             || fat32_entry->short_name[0] == 0xe5);
 
     if (fat32_entry->short_name[0] == 0) {
         fat32_entry->entry_number = 0;
