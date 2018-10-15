@@ -62,7 +62,7 @@ static uint32_t const fat32_read_data(dev_buffer_t *const dev_buffer,
         }
         // TODO - add error checking (device not available etc.)
         if (dev_buffer->dev_block_number != block_number) {
-            sd_seek(dev_buffer->sd_context, (uint64_t const)offset, SD_SEEK_SET);
+            sd_seek(dev_buffer->sd_context, (uint64_t const)offset & ~DEV_BLOCK_BUFFER_SZ_MASK, SD_SEEK_SET);
             sd_read(dev_buffer->dev_block_buffer, sizeof(uint8_t),
                     DEV_BLOCK_BUFFER_SZB, dev_buffer->sd_context);
             dev_buffer->dev_block_number = block_number;
@@ -385,7 +385,6 @@ size_t const fat32_read(void *const buffer, size_t const size, size_t const coun
     for (i = 0, state = FAT32_CLUSTER_USED;
          state == FAT32_CLUSTER_USED && i < count * size;
          ++i, ++cursor, ++cursor_offset) {
-    //printf("cluster=%X, offset=%u\n", cursor_cluster, cursor_offset);
 
         if (cursor_offset == stream->file_system->cluster_szb) {
             cursor_offset = 0;
