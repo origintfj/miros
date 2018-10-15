@@ -79,7 +79,7 @@ fat32_t *const fs_mount(sd_context_t *const sd_context) {
 
     return (fat32_t *const)(form[1]);
 }
-int const fs_dir_set(fat32_entry_t *const dir_entry, char const path[]) {
+int const fs_dir_get(fat32_entry_t *const dir_entry, char const path[]) {
     uint32_t form[3];
 
     form[0] = SYSCALL_FAT32_DIR_SET;

@@ -52,7 +52,7 @@ int const run(int const argc, char const *const *argv) {
             }
             strupr(temp_path, temp_path);
 
-            if (!fs_dir_set(&fat32_entry, temp_path)) {
+            if (!fs_dir_get(&fat32_entry, temp_path)) {
                 while (!fs_get_entry(&fat32_entry)) {
                     if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
                         printf("\nDIR     ");
@@ -132,7 +132,7 @@ int const run(int const argc, char const *const *argv) {
             //printf("\ncd to '%s'", temp_path);
             if (strlen(temp_path) >= PATH_SZB) {
                 printf("\n%s: Path too long", argv[0]);
-            } else if (!fs_dir_set(&fat32_entry, temp_path)) {
+            } else if (!fs_dir_get(&fat32_entry, temp_path)) {
                 strlwr(temp_path, temp_path);
                 strcpy(path, temp_path);
             } else {

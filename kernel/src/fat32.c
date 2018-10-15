@@ -73,18 +73,18 @@ static uint32_t const fat32_read_data(dev_buffer_t *const dev_buffer,
 
     return rd_data;
 }
-static void dir_set_root(fat32_t const *const fat32, fat32_entry_t *const fat32_entry) {
+static void fat32_dir_set_root(fat32_t const *const fat32, fat32_entry_t *const fat32_entry) {
     fat32_entry->dir_first_cluster = fat32->root_dir_first_cluster;
     fat32_entry->entry_number      = 0;
 }
-static void dir_set(fat32_entry_t *const fat32_entry, uint32_t const dir_first_cluster) {
+static void fat32_dir_set(fat32_entry_t *const fat32_entry, uint32_t const dir_first_cluster) {
     fat32_entry->dir_first_cluster = dir_first_cluster;
     fat32_entry->entry_number      = 0;
 }
-static void dir_reset(fat32_entry_t *const fat32_entry) {
+static void fat32_dir_reset(fat32_entry_t *const fat32_entry) {
     fat32_entry->entry_number = 0;
 }
-static int const get_next_cluster(fat32_t *const fat32,
+static int const fat32_get_next_cluster(fat32_t *const fat32,
                                   uint32_t *const next_cluster, uint32_t const current_cluster) {
     uint32_t const cluster = fat32_read_data(&fat32->dev_buffer, sizeof(uint32_t),
                                              fat32->fat_begin_lba * fat32->sector_szb
@@ -97,7 +97,7 @@ static int const get_next_cluster(fat32_t *const fat32,
     }
     return FAT32_CLUSTER_USED;
 }
-static int const get_coords(fat32_file_t *stream) {
+static int const fat32_get_coords(fat32_file_t *stream) {
     int long cursor;
     uint32_t cluster;
     int error;
@@ -106,7 +106,7 @@ static int const get_coords(fat32_file_t *stream) {
          error == FAT32_CLUSTER_USED && cursor > 0;
          cursor -= (int long const)stream->file_system->cluster_szb) {
 
-        error = get_next_cluster(stream->file_system, &cluster, cluster);
+        error = fat32_get_next_cluster(stream->file_system, &cluster, cluster);
     }
     if (cursor < 0) {
          cursor += (int long const)stream->file_system->cluster_szb;
@@ -116,7 +116,7 @@ static int const get_coords(fat32_file_t *stream) {
 
     return error;
 }
-static int const get_entry_i(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
+static int const fat32_get_entry_i(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
                              uint32_t const entry_number) {
     uint32_t entry_offset;
     uint32_t cluster;
@@ -127,7 +127,7 @@ static int const get_entry_i(fat32_t *const fat32, fat32_entry_t *const fat32_en
          error == FAT32_CLUSTER_USED && entry_offset >= fat32->cluster_szb;
          entry_offset -= fat32->cluster_szb) {
 
-        error = get_next_cluster(fat32, &cluster, cluster);
+        error = fat32_get_next_cluster(fat32, &cluster, cluster);
     }
 
     if (error == FAT32_CLUSTER_ERROR) {
@@ -162,12 +162,12 @@ static int const get_entry_i(fat32_t *const fat32, fat32_entry_t *const fat32_en
 
     return fat32_entry->short_name[0] == 0;
 }
-static char const *const dir_descend(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
+static char const *const fat32_dir_descend(fat32_t *const fat32, fat32_entry_t *const fat32_entry,
                                      char const dir_name[]) {
     int match = 0;
     int i;
 
-    dir_reset(fat32_entry);
+    fat32_dir_reset(fat32_entry);
 
     while (match == 0 && !fat32_get_entry(fat32, fat32_entry)) {
         //printf("Found '%s'\n", fat32_entry->short_name);
@@ -183,9 +183,9 @@ static char const *const dir_descend(fat32_t *const fat32, fat32_entry_t *const 
         }
     }
     if (fat32_entry->first_cluster == 0) { // TODO - is this really required to fix FAT32
-        dir_set(fat32_entry, fat32->root_dir_first_cluster);
+        fat32_dir_set(fat32_entry, fat32->root_dir_first_cluster);
     } else {
-        dir_set(fat32_entry, fat32_entry->first_cluster);
+        fat32_dir_set(fat32_entry, fat32_entry->first_cluster);
     }
 
     return (match ? &dir_name[i] : NULL);
@@ -245,7 +245,7 @@ fat32_t *const fat32_mount(sd_context_t *const sd_context) {
 
     return fat32;
 }
-int const fat32_dir_set(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
+int const fat32_dir_get(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
     // TODO - remove requirment for trailing '/'
     if (fat32 == VMEM32_NULL) {
         return 1;
@@ -255,14 +255,14 @@ int const fat32_dir_set(fat32_t *const fat32, fat32_entry_t *const dir_entry, ch
     int match;
     char const *sub_path;
 
-    dir_set_root(fat32, dir_entry);
+    fat32_dir_set_root(fat32, dir_entry);
 
     for (sub_path = path, match = 1; match && sub_path[0] != '\0'; ) {
         for (i = 0; sub_path[i] == '/'; ++i);
         sub_path = &sub_path[i];
         //printf("<subpath=%s>", sub_path);
         if (sub_path[0] != '\0') {
-            sub_path = dir_descend(fat32, dir_entry, sub_path);
+            sub_path = fat32_dir_descend(fat32, dir_entry, sub_path);
             match = (sub_path == NULL ? 0 : 1);
             //printf("<match=%u>", match);
         }
@@ -278,7 +278,7 @@ int const fat32_get_entry(fat32_t *const fat32, fat32_entry_t *const fat32_entry
     uint32_t entry_number = fat32_entry->entry_number;
 
     do {
-        get_entry_i(fat32, fat32_entry, entry_number++);
+        fat32_get_entry_i(fat32, fat32_entry, entry_number++);
     } while (fat32_entry->short_name[0] != 0 && (fat32_entry->attribute & 0xf) == 0xf);
 
     if (fat32_entry->short_name[0] == 0) {
@@ -300,7 +300,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     char const *sub_path;
     fat32_entry_t dir_entry;
 
-    dir_set_root(fat32, &dir_entry);
+    fat32_dir_set_root(fat32, &dir_entry);
 
     for (i = strlen(path); i >= 0 && path[i] != '/'; --i);
     file_name = (i < 0 ? path : &path[i + 1]);
@@ -311,7 +311,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
         if (sub_path == file_name) {
             found_dir = 1;
         } else {
-            sub_path = dir_descend(fat32, &dir_entry, sub_path);
+            sub_path = fat32_dir_descend(fat32, &dir_entry, sub_path);
             match = (sub_path == NULL ? 0 : 1);
         }
     }
@@ -371,7 +371,7 @@ int long const fat32_tell(fat32_file_t *const stream) {
 size_t const fat32_read(void *const buffer, size_t const size, size_t const count, fat32_file_t *stream) {
     //vmutex32_wait_for_lock();
 
-    if (get_coords(stream) == FAT32_CLUSTER_ERROR) {
+    if (fat32_get_coords(stream) == FAT32_CLUSTER_ERROR) {
         return (size_t const)0;
     }
 
@@ -388,7 +388,7 @@ size_t const fat32_read(void *const buffer, size_t const size, size_t const coun
 
         if (cursor_offset == stream->file_system->cluster_szb) {
             cursor_offset = 0;
-            state = get_next_cluster(stream->file_system, &cursor_cluster, cursor_cluster);
+            state = fat32_get_next_cluster(stream->file_system, &cursor_cluster, cursor_cluster);
         }
         ((uint8_t *const)buffer)[i] = fat32_read_data(&stream->file_system->dev_buffer, sizeof(uint8_t),
                                             ((stream->file_system->cluster_sz_sectors

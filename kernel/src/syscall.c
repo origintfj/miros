@@ -29,7 +29,7 @@ void syscall(uint32_t *const argv) {
         fat32_root_fs = fat32_mount((sd_context_t *const)argv[1]);
     } else if (argv[0] == SYSCALL_FAT32_UMOUNT) { // TODO - implement
     } else if (argv[0] == SYSCALL_FAT32_DIR_SET) {
-        argv[1] = (uint32_t const)fat32_dir_set(fat32_root_fs, (fat32_entry_t *const)argv[1],
+        argv[1] = (uint32_t const)fat32_dir_get(fat32_root_fs, (fat32_entry_t *const)argv[1],
                                                 (char const *const)argv[2]);
     } else if (argv[0] == SYSCALL_FAT32_GET_ENTRY) {
         argv[1] = (uint32_t const)fat32_get_entry(fat32_root_fs, (fat32_entry_t *const)argv[1]);

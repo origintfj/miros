@@ -20,7 +20,7 @@ unsigned const vthread_get_all(uint32_t **const list);
 uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg);
 // file system functions
 fat32_t *const fs_mount(sd_context_t *const sd_context);
-int const fs_dir_set(fat32_entry_t *const dir_entry, char const path[]);
+int const fs_dir_get(fat32_entry_t *const dir_entry, char const path[]);
 int const fs_get_entry(fat32_entry_t *const fat32_entry);
 fat32_file_t *const fopen(char const path[]);
 int const fclose(fat32_file_t *const fat32_file_handle);

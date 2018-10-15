@@ -11,7 +11,7 @@
 // file system control
 fat32_t *const fat32_mount(sd_context_t *const sd_context);
 // file system navigation
-int const fat32_dir_set(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]);
+int const fat32_dir_get(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]);
 int const fat32_get_entry(fat32_t *const fat32, fat32_entry_t *const fat32_entry);
 // file io
 fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]);
