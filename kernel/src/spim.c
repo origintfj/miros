@@ -24,7 +24,7 @@ int const spim_init(uint32_t const dev_base_addr, unsigned const cphb, int const
     write_reg(dev_base_addr + SPIM_STATUS_OFFSET, ~SPIM_STATUS_CS_MASK);
     cfg  = (cpol ? SPIM_CFG_CPOL_MASK : 0);
     cfg |= (cpha ? SPIM_CFG_CPHA_MASK : 0);
-    cfg |= cphb;
+    cfg |= (cphb ? cphb : 1);
     write_reg(dev_base_addr + SPIM_CFG_OFFSET, cfg);
 
     return (cphb & ~SPIM_CFG_CPHB_MASK ? 1 : 0);
@@ -33,7 +33,7 @@ int const spim_set_cphb(uint32_t const dev_base_addr, unsigned const cphb) {
     uint32_t cfg;
 
     cfg  = read_reg(dev_base_addr + SPIM_CFG_OFFSET) & ~SPIM_CFG_CPHB_MASK;
-    cfg |= cphb;
+    cfg |= (cphb ? cphb : 1);
     write_reg(dev_base_addr + SPIM_CFG_OFFSET, cfg);
 
     return (cphb & ~SPIM_CFG_CPHB_MASK ? 1 : 0);

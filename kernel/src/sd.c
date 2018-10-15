@@ -7,15 +7,8 @@
 
 #define SD_CMD_SZB          6
 
-uint8_t const sd__cmd00[] = { 0x40 |  0, 0x00, 0x00, 0x00, 0x00, 0x95 | 0x01 };
-uint8_t const sd__cmd08[] = { 0x40 |  8, 0x00, 0x00, 0x01, 0xaa, 0x87 | 0x01 };
-uint8_t const sd__cmd58[] = { 0x40 | 58, 0x00, 0x00, 0x00, 0x00, 0x00 | 0x01 };
-uint8_t const sd__cmd01[] = { 0x40 |  1, 0x00, 0x00, 0x00, 0x00, 0x00 | 0x01 }; // TODO - use
-
-uint8_t const sd__cmd55[] = { 0x40 | 55, 0x00, 0x00, 0x00, 0x00, 0x00 | 0x01 };
-uint8_t const sd_acmd41[] = { 0x40 | 41, 0x41, 0x00, 0x00, 0x00, 0x00 | 0x01 };
-
-uint8_t const sd__cmd17[] = { 0x40 | 17, 0x00, 0x00, 0x00, 0x00, 0xff | 0x01 };
+//uint8_t const sd__cmd01[] = { 0x40 |  1, 0x00, 0x00, 0x00, 0x00, 0x00 | 0x01 }; // TODO - use
+//uint8_t const sd__cmd17[] = { 0x40 | 17, 0x00, 0x00, 0x00, 0x00, 0xff | 0x01 };
 
 #include <uart.h>
 
@@ -26,9 +19,6 @@ static void sd_send_dummy_bytes(uint32_t const spim_base_addr, unsigned const n)
         spim_byte_exchange(spim_base_addr, 0xff);
     }
 }
-static void sd_send_cmd(uint32_t const spim_base_addr, uint8_t const *const cmd) {
-    spim_block_write(spim_base_addr, cmd, SD_CMD_SZB);
-}
 static uint32_t const sd_get_r1(uint32_t const spim_base_addr, unsigned const try_count) {
     unsigned i;
     uint8_t rx_data;
@@ -37,6 +27,7 @@ static uint32_t const sd_get_r1(uint32_t const spim_base_addr, unsigned const tr
                 (rx_data = spim_byte_exchange(spim_base_addr, 0xff)) & 0x80; ++i);
     return (uint32_t const)rx_data;
 }
+/*
 static uint32_t const sd_get_r3(uint32_t const spim_base_addr, unsigned const try_count,
                                 uint32_t *const r3_response) {
     unsigned i;
@@ -52,7 +43,6 @@ static uint32_t const sd_get_r3(uint32_t const spim_base_addr, unsigned const tr
     *r3_response |= spim_byte_exchange(spim_base_addr, 0xff) <<  0;
     return r1_response;
 }
-//
 static uint32_t const sd_send__cmd_r1(uint32_t const spim_base_addr, uint8_t const *const cmd) {
     uint32_t r1;
 
@@ -78,40 +68,65 @@ static uint32_t const sd_send__cmd_r3(uint32_t const spim_base_addr, uint8_t con
 
     return r1;
 }
-static int const sd_init(uint32_t const spim_base_addr, unsigned const cphb) {
-    uint32_t r1, r3;
+*/
+static uint8_t const sd_send_cmd(uint32_t const spim_base_addr,
+                                 uint8_t const cmd, uint32_t const arg, uint8_t const crc,
+                                 void *const rsp, size_t const rsp_szb) {
+    sd_send_dummy_bytes(spim_base_addr, 1);
+
+    spim_cs_assert(spim_base_addr);
+
+    spim_byte_exchange(spim_base_addr, 0x40 | cmd);
+    spim_byte_exchange(spim_base_addr, (uint8_t const)(arg >> 24));
+    spim_byte_exchange(spim_base_addr, (uint8_t const)(arg >> 16));
+    spim_byte_exchange(spim_base_addr, (uint8_t const)(arg >>  8));
+    spim_byte_exchange(spim_base_addr, (uint8_t const)(arg >>  0));
+    spim_byte_exchange(spim_base_addr, 0x01 | crc);
+
+    uint8_t rsp0;
+    while ((rsp0 = spim_byte_exchange(spim_base_addr, 0xff)) & 0x80); // TODO timeout?
+
     unsigned i;
+    for (i = 0; i < (unsigned const)rsp_szb; ++i) {
+        ((uint8_t *const)rsp)[i] = spim_byte_exchange(spim_base_addr, 0xff);
+    }
+
+    spim_cs_deassert(spim_base_addr);
+
+    sd_send_dummy_bytes(spim_base_addr, SD_POSTAMBLE_SZB);
+
+    return rsp0;
+}
+static int const sd_init(uint32_t const spim_base_addr, unsigned const cphb_slow, unsigned const cphb_fast) {
+    uint8_t r1;
+    uint32_t vinfo, ocr;
 
     //printf("SD Card init:\n", r1);
-    spim_init(spim_base_addr, cphb, 0, 0);
+    spim_init(spim_base_addr, cphb_slow, 0, 0);
 
     sd_send_dummy_bytes(spim_base_addr, 20);
-    r1 = sd_send__cmd_r1(spim_base_addr, sd__cmd00);
-    //printf(" CMD00: r1=0x%X\n", r1);
-    r1 = sd_send__cmd_r3(spim_base_addr, sd__cmd08, &r3);
-    //printf(" CMD08: r1=0x%X, r3=0x%X\n", r1, r3);
+
+    r1 = sd_send_cmd(spim_base_addr, 0, 0x00000000, 0x95, NULL, 0);
+    r1 = sd_send_cmd(spim_base_addr, 8, 0x000001aa, 0x87, &vinfo, 4);
     if (r1 == 0x01) { // version 2 card
     } else { // version 1 card ?
     }
-    r1 = sd_send__cmd_r3(spim_base_addr, sd__cmd58, &r3);
-    //printf(" CMD58: r1=0x%X, r3=0x%X\n", r1, r3);
-
-/*
-    r1 = sd_send_acmd_r3(spim_base_addr, sd_acmd41, &r3);
-    printf("CMD58: r1=0x%X, r3=0x%X\n", r1, r3);
-*/
+    r1 = sd_send_cmd(spim_base_addr, 58, 0x00000000, 0x00, &ocr, 4);
+    //printf(" CMD58: R1=%X, OCR=0x%X\n", r1, ocr);
 
     for (r1 = 1; r1 != 0; ) {
-        r1 = sd_send__cmd_r1(spim_base_addr, sd__cmd55);
-        //printf(" CMD55: r1=0x%X\n", r1);
-        r1 = sd_send__cmd_r3(spim_base_addr, sd_acmd41, &r3);
-        //printf(" ACMD41: r1=0x%X, r3=0x%X\n", r1, r3);
+        r1 = sd_send_cmd(spim_base_addr, 55, 0x00000000, 0x00, NULL, 0);
+        r1 = sd_send_cmd(spim_base_addr, 41, 0x41000000, 0x00, NULL, 0);
     }
+
+    r1 = sd_send_cmd(spim_base_addr, 58, 0x00000000, 0x00, &ocr, 4);
+    //printf(" CMD58: R1=%X, OCR=0x%X\n", r1, ocr);
+
+    spim_set_cphb(spim_base_addr, cphb_fast);
 
     return 0;
 }
 static int const sd_block_read(uint32_t const spim_base_addr, void *const buffer, uint32_t const sector) {
-    uint32_t r1;
     uint8_t rx_byte;
     unsigned i;
 
@@ -123,9 +138,10 @@ static int const sd_block_read(uint32_t const spim_base_addr, void *const buffer
     spim_byte_exchange(spim_base_addr, sector >>  8);
     spim_byte_exchange(spim_base_addr, sector >>  0);
     spim_byte_exchange(spim_base_addr, 0xff | 0x01);
-    r1 = sd_get_r1(spim_base_addr, 0);
 
-    if (r1) {
+    while ((rx_byte = spim_byte_exchange(spim_base_addr, 0xff)) & 0x80); // TODO timeout?
+
+    if (rx_byte) {
         return 1;
     }
 
@@ -153,7 +169,7 @@ struct sd_context {
 sd_context_t *const sd_context_create(uint32_t const spim_base_addr, uint32_t const clk_freq_hz) {
     int error;
 
-    error = sd_init(spim_base_addr, clk_freq_hz / 333000);
+    error = sd_init(spim_base_addr, clk_freq_hz / 333000 / 2, clk_freq_hz / 25000000 / 2);
 
     sd_context_t *const sd_context = (sd_context_t *const)vmem32_alloc(sizeof(sd_context_t));
     if (sd_context == NULL) {
