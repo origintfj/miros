@@ -186,6 +186,10 @@ uint32_t const process_start(fat32_t *const fat32, char const *const path, unsig
     uint32_t process_args[2];
     process_args[0] = (uint32_t const)argc;
     process_args[1] = (uint32_t const)arg_vector;
+    // TODO - pass these args to program as argc and argv.
+    //        the app's entry.S will need to be fixed to prevent
+    //        it from clobering the values.  perhaps absorb
+    //        entry.S into process module.
 
 /*
     printf("\n");
