@@ -52,16 +52,18 @@ int const run(int const argc, char const *const *argv) {
             strupr(temp_path, temp_path);
 
             if (!fs_dir_get(&fat32_entry, temp_path)) {
+                printf("%c[0m", 0x1b);
                 while (!fs_get_entry(&fat32_entry)) {
                     if (fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR) {
+                        printf("%c[36m", 0x1b);
                         printf("\nDIR     ");
                     } else {
+                        printf("%c[32m", 0x1b);
                         printf("\n        ");
                     }
-                    printf("%c%s%c", fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? '[' : '\'',
-                                     strlwr(fat32_entry.short_name, fat32_entry.short_name),
-                                     fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? ']' : '\'');//,
-                                     //fat32_entry->first_cluster);
+                    printf("%s%c", strlwr(fat32_entry.short_name, fat32_entry.short_name),
+                                   fat32_entry.attribute & FAT32_ENTRY_ATTRIB_DIR ? '/' : ' ');
+                    printf("%c[0m", 0x1b);
                 }
             } else {
                 printf("\nDirectory not found.");
@@ -362,13 +364,18 @@ void history_print(void) {
 }
 */
 void print_prompt() {
-    printf("shell:%s# ", path);
+    printf("shell:");
+    printf("%c[36m", 0x1b);
+    printf("%s", path);
+    printf("%c[0m", 0x1b);
+    printf("# ");
 }
 void *const shell(void *const arg) {
     char c;
 
     strcpy(path, "/");
 
+    printf("%c[0m", 0x1b);
     printf("\n");
     print_prompt();
 

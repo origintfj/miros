@@ -1,9 +1,9 @@
-SIZE_KB ?= 100
+SIZE_MB ?= 1000
 
 all: fat32fs
 
 fat32fs:
-	dd if=/dev/zero of=fat32fs.img bs=1K count=$(SIZE_KB)
+	dd if=/dev/zero of=fat32fs.img bs=1M count=$(SIZE_MB)
 	mkfs.vfat -v -F32 fat32fs.img
 	mkdir -p mnt
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/
@@ -16,7 +16,7 @@ fat32fs:
 	echo "test2" > mnt/root/test2.txt
 	echo "test3" > mnt/root/sub/test3.txt
 	sudo umount mnt/
-	xxd -p fat32fs.img > fat32fs.x
+	#xxd -p fat32fs.img > fat32fs.x
 
 mount:
 	sudo mount -t vfat -o uid=$$(whoami) fat32fs.img mnt/

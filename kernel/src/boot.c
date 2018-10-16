@@ -66,6 +66,7 @@ void *const shell(void *const arg);
 #include <sd.h>
 
 void *const boot_thread(void *const arg) {
+    printf("%c[0m", 0x1b);
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
 
@@ -128,6 +129,21 @@ int const execute(int const argc, char const *const *const argv,
 
     vmem32_free(arg_buffer);
     return error;
+}
+*/
+/*
+int const process_start(char const *const path[], int const argc, char const *const *const argv,
+                        char const *const buffer) {
+    fat32_file_t *const ifile = fat32_open(path);
+    if (ifile == NULL) {
+        return 1;
+    }
+    fseek(ifile, 0, FAT32_SEEK_END);
+    unsigned ifile_len = ftell(ifile);
+    uint8_t *const buffer = (uint8_t *const)vmem32_alloc(ifile_len * sizeof(uint8_t));
+    fseek(ifile, 0, FAT32_SEEK_SET);
+    fread(buffer, sizeof(uint8_t), ifile_len, ifile);
+    fclose(ifile);
 }
 */
 #include <syscall.h>
