@@ -155,3 +155,18 @@ size_t const fread(void *const buffer, size_t const size, size_t const count, fa
 
     return (size_t const)(form[1]);
 }
+//--------------------------------------------------------------
+// process functions
+//--------------------------------------------------------------
+uint32_t const proc_start(char const *const path, int const argc, char const *const *const argv) {
+    uint32_t form[4];
+
+    form[0] = SYSCALL_PROC_CREATE;
+    form[1] = (uint32_t const)path;
+    form[2] = (uint32_t const)argc;
+    form[3] = (uint32_t const)argv;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (size_t const)(form[1]);
+}

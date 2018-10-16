@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <vmem32.h>
 #include <vmutex32.h>
+#include <syscall.h>
 
 #define VTHREAD32_CONTEXT_SZW   30
 
@@ -10,7 +11,7 @@ struct thread_info {
     void *container;
     uint32_t mstatus;
     uint32_t mepc;
-    uint32_t const *stack_base_ed;
+    uint32_t const *stack_base_fd;
     //
     struct thread_info *previous;
     struct thread_info *next;
@@ -34,17 +35,16 @@ thread_handle_t volatile dead_thread;
 
 #include <uart.h>
 
-void vthread32_finished_handler(void) {
-    //printf("In finished_handler.\n");
-    vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
-    while (finished_thread != VMEM32_NULL);
-    finished_thread = active_thread;
-    vmutex32_unlock(&finished_thread_mutex);
+static void vthread32_return_handler(void) {
+    uint32_t form[1];
 
-    while (1);
+    form[0] = SYSCALL_VTHREAD_FINISHED;
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
     __builtin_unreachable();
 }
-void *const vthread32_cleanup_deamon(void *const arg) {
+static void *const vthread32_cleanup_deamon(void *const arg) {
     //printf("Starting cleanup deamon-----------.\n");
     while (1) {
         while (dead_thread == VMEM32_NULL);
@@ -67,42 +67,42 @@ int const vthread32_kill(thread_handle_t const thread) {
 int const vthread32_init(void *const(*thread)(void *const),
                          void *const arg, unsigned const stack_szw,
                          unsigned const kernel_stack_szw) {
-    uint32_t *kernel_stack_base_ed;
-    uint32_t *thread_stack_base_ed;
+    uint32_t *kernel_stack_base_fd;
+    uint32_t *thread_stack_base_fd;
     void *thread_container;
 
-    kernel_stack_base_ed = vmem32_alloc(kernel_stack_szw << 2)
+    kernel_stack_base_fd = vmem32_alloc(kernel_stack_szw << 2)
                          + kernel_stack_szw;
-    if (kernel_stack_base_ed == VMEM32_NULL) {
+    if (kernel_stack_base_fd == VMEM32_NULL) {
         return 1;
     }
-    //printf("Kernel stack = 0x%x\n", kernel_stack_base_ed);
+    //printf("Kernel stack = 0x%x\n", kernel_stack_base_fd);
 
     thread_ring = vmem32_alloc(sizeof(thread_info_t));
     if (thread_ring == VMEM32_NULL) {
-        vmem32_free(kernel_stack_base_ed);
+        vmem32_free(kernel_stack_base_fd);
         return 2;
     }
     //printf("thread_ring = 0x%x\n", thread_ring);
 
-    thread_stack_base_ed = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
+    thread_stack_base_fd = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
                          + stack_szw - VTHREAD32_CONTEXT_SZW;
-    if (thread_stack_base_ed == VMEM32_NULL) {
-        vmem32_free(kernel_stack_base_ed);
+    if (thread_stack_base_fd == VMEM32_NULL) {
+        vmem32_free(kernel_stack_base_fd);
         vmem32_free(thread_ring);
         return 3;
     }
 
-    __asm__ volatile ("csrw mscratch, %0" :: "r"(kernel_stack_base_ed) : "memory");
+    __asm__ volatile ("csrw mscratch, %0" :: "r"(kernel_stack_base_fd) : "memory");
 
-    thread_stack_base_ed[0] = (uint32_t const)vthread32_finished_handler;
-    thread_stack_base_ed[8] = (uint32_t const)arg;
+    thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
+    thread_stack_base_fd[8] = (uint32_t const)arg;
 
     // initialise the thread info. struct
     thread_ring->container     = thread_container;
     thread_ring->mstatus       = 0x1880;
     thread_ring->mepc          = (uint32_t const)thread;
-    thread_ring->stack_base_ed = thread_stack_base_ed;
+    thread_ring->stack_base_fd = thread_stack_base_fd;
     //
     thread_ring->previous = thread_ring;
     thread_ring->next     = thread_ring;
@@ -150,9 +150,43 @@ unsigned const vthread32_get_all(thread_handle_t **const list) {
 
     return thread_count;
 }
+thread_handle_t const vthread32_create_raw(void *const(*thread)(void *const), void *const arg,
+                                           void *const thread_container, uint32_t *const stack_base_fd,
+                                           uint32_t const mstatus) {
+    uint32_t *thread_stack_base_fd;
+    thread_handle_t temp_thread;
+
+    temp_thread = vmem32_alloc(sizeof(thread_info_t));
+    if (temp_thread == VMEM32_NULL) {
+        return VMEM32_NULL;
+    }
+    //printf("temp_thread = 0x%x\n", temp_thread);
+
+    thread_stack_base_fd = stack_base_fd - VTHREAD32_CONTEXT_SZW;
+    if (thread_stack_base_fd == VMEM32_NULL) {
+        vmem32_free(temp_thread);
+        return VMEM32_NULL;
+    }
+
+    thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
+    thread_stack_base_fd[8] = (uint32_t const)arg;
+
+    // initialise the thread info. struct
+    temp_thread->container     = thread_container;
+    temp_thread->mstatus       = mstatus;
+    temp_thread->mepc          = (uint32_t const)thread;
+    temp_thread->stack_base_fd = thread_stack_base_fd;
+
+    vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
+    while (new_thread != VMEM32_NULL);
+    new_thread = temp_thread;
+    vmutex32_unlock(&new_thread_mutex);
+
+    return temp_thread;
+}
 thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                        unsigned const stack_szw, uint32_t const mstatus) {
-    uint32_t *thread_stack_base_ed;
+    uint32_t *thread_stack_base_fd;
     void *thread_container;
     thread_handle_t temp_thread;
 
@@ -162,21 +196,21 @@ thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *
     }
     //printf("temp_thread = 0x%x\n", temp_thread);
 
-    thread_stack_base_ed = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
+    thread_stack_base_fd = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
                          + stack_szw - VTHREAD32_CONTEXT_SZW;
-    if (thread_stack_base_ed == VMEM32_NULL) {
+    if (thread_stack_base_fd == VMEM32_NULL) {
         vmem32_free(temp_thread);
         return VMEM32_NULL;
     }
 
-    thread_stack_base_ed[0] = (uint32_t const)vthread32_finished_handler;
-    thread_stack_base_ed[8] = (uint32_t const)arg;
+    thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
+    thread_stack_base_fd[8] = (uint32_t const)arg;
 
     // initialise the thread info. struct
     temp_thread->container     = thread_container;
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
-    temp_thread->stack_base_ed = thread_stack_base_ed;
+    temp_thread->stack_base_fd = thread_stack_base_fd;
 
     vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
     while (new_thread != VMEM32_NULL);
@@ -185,17 +219,27 @@ thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *
 
     return temp_thread;
 }
+void vthread32_finished_handler(void) {
+    //printf("In finished_handler.\n");
+    vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
+    while (finished_thread != VMEM32_NULL);
+    finished_thread = active_thread;
+    vmutex32_unlock(&finished_thread_mutex);
+
+    while (1);
+    __builtin_unreachable();
+}
 void vthread32_switch(void) {
     uint32_t mstatus;
     uint32_t mepc;
-    uint32_t const *stack_base_ed;
+    uint32_t const *stack_base_fd;
 
     __asm__ volatile ("csrr %0, mstatus" : "=r"(mstatus) :: "memory");
     __asm__ volatile ("csrr %0, mepc" : "=r"(mepc) :: "memory");
-    __asm__ volatile ("csrr %0, mscratch" : "=r"(stack_base_ed) :: "memory");
+    __asm__ volatile ("csrr %0, mscratch" : "=r"(stack_base_fd) :: "memory");
     active_thread->mstatus       = mstatus;
     active_thread->mepc          = mepc;
-    active_thread->stack_base_ed = stack_base_ed;
+    active_thread->stack_base_fd = stack_base_fd;
 
     active_thread = active_thread->next;
 
@@ -226,14 +270,14 @@ void vthread32_switch(void) {
 
     mstatus       = active_thread->mstatus;
     mepc          = active_thread->mepc;
-    stack_base_ed = active_thread->stack_base_ed;
+    stack_base_fd = active_thread->stack_base_fd;
     __asm__ volatile ("csrw mstatus, %0" :: "r"(mstatus) : "memory");
     __asm__ volatile ("csrw mepc, %0" :: "r"(mepc) : "memory");
-    __asm__ volatile ("csrw mscratch, %0" :: "r"(stack_base_ed) : "memory");
+    __asm__ volatile ("csrw mscratch, %0" :: "r"(stack_base_fd) : "memory");
 }
 /*
     __asm__ volatile ("csrr %0, mstatus" : "=r"(mstatus) :: "memory");
     __asm__ volatile ("csrr %0, mepc" : "=r"(mepc) :: "memory");
-    __asm__ volatile ("csrr %0, mscratch" : "=r"(stack_base_ed) :: "memory");
-    printf("Switch start: mstatus=0x%x, mepc=0x%x, stack=0x%x\n", mstatus, mepc, stack_base_ed);
+    __asm__ volatile ("csrr %0, mscratch" : "=r"(stack_base_fd) :: "memory");
+    printf("Switch start: mstatus=0x%x, mepc=0x%x, stack=0x%x\n", mstatus, mepc, stack_base_fd);
 */

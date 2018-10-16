@@ -270,35 +270,19 @@ int const run(int const argc, char const *const *argv) {
         }
         printf("\n");
     } else {
-        error = 1;
+        char temp_path[PATH_SZB];
+        strcpy(temp_path, "/bin/");
+        strcat(temp_path, argv[0]);
+        strupr(temp_path, temp_path);
+        if (proc_start(temp_path, argc, argv) == 0) {
+            error = 1;
+        } else {
+            error = 0;
+            //TODO wait for join
+        }
     }
 
     return error;
-}
-int const start(int const argc, char const *const *const argv) {
-    char temp_path[FAT32_MAX_PATH_LENGTH];
-
-    strcpy(temp_path, "/BIN/");
-
-    if (strlen(temp_path) + strlen(argv[0]) < FAT32_MAX_PATH_LENGTH) {
-        strcat(temp_path, argv[0]);
-
-        fat32_file_t *ifile = fopen(argv[0]);
-
-        if (ifile != NULL) {
-            fseek(ifile, 0, FAT32_SEEK_END);
-            unsigned ifile_len = ftell(ifile);
-            char *const buffer = (char *const)malloc(ifile_len * sizeof(char));
-            fseek(ifile, 0, FAT32_SEEK_SET);
-            fread(buffer, sizeof(char), ifile_len, ifile);
-            buffer[ifile_len] = '\0';
-            fclose(ifile);
-
-            //vthread32_create(buffer, NULL, 1024u, 0x1880);
-
-            free(buffer);
-        }
-    }
 }
 int const execute(int const argc, char const *const *const argv,
                   char const *const buffer) {
@@ -330,9 +314,6 @@ int const execute(int const argc, char const *const *const argv,
         //printf("'%s'\n", argv[i]);
     }
     error = run(argc, argv);
-    if (error) {
-        start(argc, argv);
-    }
 
     free(arg_buffer);
     return error;

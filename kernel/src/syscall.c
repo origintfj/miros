@@ -6,7 +6,12 @@
 #include <fat32.h>
 
 uint64_t const time_us(void); // TODO - move to time module
-extern fat32_t *fat32_root_fs; // TODO - move to time module
+extern fat32_t *fat32_root_fs; // TODO - move to a module
+
+// TODO - move to a module
+uint32_t const process_start(fat32_t *const fat32, char const *const path, unsigned const stack_szw,
+                             int const argc, char const *const *const argv);
+//#include <uart.h>
 
 void syscall(uint32_t *const argv) {
     if (argv[0] == SYSCALL_TIME_GET_UP_TIME_US) {
@@ -24,6 +29,8 @@ void syscall(uint32_t *const argv) {
     } else if (argv[0] == SYSCALL_VTHREAD_CREATE) {
         argv[1] = (uint32_t const)vthread32_create((void *const(*)(void *const))argv[1],
                                                    (void *const)argv[2], 1024u, 0x0080);
+    } else if (argv[0] == SYSCALL_VTHREAD_FINISHED) {
+        vthread32_finished_handler();
     } else if (argv[0] == SYSCALL_FAT32_MOUNT) {
         //argv[1] = (uint32_t const)fat32_mount((void *const)argv[1]); // TODO
         fat32_root_fs = fat32_mount((sd_context_t *const)argv[1]);
@@ -45,5 +52,8 @@ void syscall(uint32_t *const argv) {
     } else if (argv[0] == SYSCALL_FAT32_READ) {
         argv[1] = (uint32_t const)fat32_read((void *const)argv[1], (size_t const)argv[2],
                                              (size_t const)argv[3], (fat32_file_t *)argv[4]);
+    } else if (argv[0] == SYSCALL_PROC_CREATE) {
+        argv[1] = process_start(fat32_root_fs, (char const *const)argv[1], 1024u, (int const)argv[2],
+                                (char const *const *const)argv[3]);
     }
 }

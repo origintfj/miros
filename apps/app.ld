@@ -20,7 +20,6 @@ SECTIONS
     . = ALIGN(4);
     _bss_end = .;
     . = ALIGN(4);
-    _mpool_start = .;
     /DISCARD/                : {*(*)}
     /*
     */

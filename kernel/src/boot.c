@@ -86,15 +86,17 @@ void *const boot_thread(void *const arg) {
     }
     printf("SUCCESSS (%X)", (uint32_t const)fat32_root_fs);
 
-    vthread32_create(shell, NULL, 1024u, 0x1880);
+    vthread32_create(shell, NULL, 1024u, 0x0080);
 
     //vmem32_dump_table();
 
     return NULL;
 }
 /*
-int const execute(int const argc, char const *const *const argv,
-                  char const *const buffer) {
+void *const process_entry(void *const arg) {
+    int const argc = (int const)((uint32_t const *const)arg)[0];
+    char const *const *const argv = (char const *const *const)((uint32_t const *const)arg)[1];
+    char const *const buffer = (char const *const)((uint32_t const *const)arg)[2];
     char *str_buffer;
     void *arg_buffer;
     char const **arg_vector;
@@ -129,23 +131,78 @@ int const execute(int const argc, char const *const *const argv,
 
     vmem32_free(arg_buffer);
     return error;
+    return NULL;
 }
 */
-/*
-int const process_start(char const *const path[], int const argc, char const *const *const argv,
-                        char const *const buffer) {
-    fat32_file_t *const ifile = fat32_open(path);
+#include <vstring.h>
+uint32_t const process_start(fat32_t *const fat32, char const *const path, unsigned const stack_szw,
+                             int const argc, char const *const *const argv) {
+    // open the program file
+    fat32_file_t *const ifile = fat32_open(fat32, path);
     if (ifile == NULL) {
-        return 1;
+        return 0;
     }
-    fseek(ifile, 0, FAT32_SEEK_END);
-    unsigned ifile_len = ftell(ifile);
-    uint8_t *const buffer = (uint8_t *const)vmem32_alloc(ifile_len * sizeof(uint8_t));
-    fseek(ifile, 0, FAT32_SEEK_SET);
-    fread(buffer, sizeof(uint8_t), ifile_len, ifile);
-    fclose(ifile);
-}
+
+    // calculate the size of the argv-buffer
+    unsigned i, arg_buffer_szb;
+    for (i = 0, arg_buffer_szb = 0; i < argc; ++i) {
+        arg_buffer_szb += strlen(argv[i]) + 1;
+    }
+
+    // allocate a memory block for the program (stack, argv, program, and argv-buffer)
+    fat32_seek(ifile, 0, FAT32_SEEK_END);
+    unsigned ifile_len = fat32_tell(ifile);
+    uint8_t *const process_container = (uint8_t *const)vmem32_alloc(stack_szw * sizeof(uint32_t)
+                                                                    + argc * sizeof(char *)
+                                                                    + ifile_len * sizeof(uint8_t)
+                                                                    + arg_buffer_szb * sizeof(char));
+
+    // assign the relevant sections of the buffer to appropriate pointers
+    uint32_t *stack_base_fd;
+    char **arg_vector;
+    void *const(*process_entry)(void *const);
+    char *arg_buffer;
+    stack_base_fd = (uint32_t *const)&process_container[stack_szw * sizeof(uint32_t)];
+    arg_vector = (char **const)&process_container[stack_szw * sizeof(uint32_t)];
+    process_entry = (void *const(*)(void *const))&process_container[stack_szw * sizeof(uint32_t)
+                                                                    + argc * sizeof(char *)];
+    arg_buffer = (char *const)&process_container[stack_szw * sizeof(uint32_t)
+                                                 + argc * sizeof(char *)
+                                                 + ifile_len * sizeof(uint8_t)];
+
+    // copy the program into the container, and close the file
+    fat32_seek(ifile, 0, FAT32_SEEK_SET);
+    fat32_read(&process_container[stack_szw * sizeof(uint32_t) + argc * sizeof(char *)],
+                                  sizeof(uint8_t), ifile_len, ifile);
+    fat32_close(ifile);
+
+    // deep-copy argv and the argv-buffer to the process container
+    for (i = 0, arg_buffer_szb = 0; i < argc; ++i) {
+        arg_vector[i] = &arg_buffer[arg_buffer_szb];
+        strcpy(arg_vector[i], argv[i]);
+        arg_buffer_szb += strlen(argv[i]) + 1;
+    }
+
+    uint32_t process_args[2];
+    process_args[0] = (uint32_t const)argc;
+    process_args[1] = (uint32_t const)arg_vector;
+
+/*
+    printf("\n");
+    printf("process_container : %X\n", (uint32_t const)process_container);
+    printf("stack_base_fd     : %X\n", (uint32_t const)stack_base_fd);
+    printf("arg_vector        : %X\n", (uint32_t const)arg_vector);
+    printf("process_entry     : %X\n", (uint32_t const)process_entry);
+    printf("arg_buffer        : %X\n", (uint32_t const)arg_buffer);
 */
+//*
+    thread_handle_t thread_handle;
+    thread_handle = vthread32_create_raw(process_entry, process_args,
+                                         process_container, stack_base_fd, 0x0080);
+/**/
+    return (uint32_t const)thread_handle;
+}
+
 #include <syscall.h>
 
 void trap_excp(uint32_t *const argv, int32_t const mcause) {

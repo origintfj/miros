@@ -27,5 +27,7 @@ int const fclose(fat32_file_t *const fat32_file_handle);
 int const fseek(fat32_file_t *stream, int long const offset, int const origin_id);
 int long const ftell(fat32_file_t *const stream);
 size_t const fread(void *const buffer, size_t const size, size_t const count, fat32_file_t *stream);
+// process functions
+uint32_t const proc_start(char const *const path, int const argc, char const *const *const argv);
 
 #endif

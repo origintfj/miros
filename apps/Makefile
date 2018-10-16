@@ -7,10 +7,14 @@ OBJCOPY := $(TOOLCHAIN_DIR)/bin/riscv32-unknown-elf-objcopy
 OBJDUMP := $(TOOLCHAIN_DIR)/bin/riscv32-unknown-elf-objdump
 
 LD_OPTIONS := -L$(TOOLCHAIN_DIR)/lib/gcc/riscv32-unknown-elf/7.2.0/ -T app.ld --no-relax
-CC_OPTIONS := -I./include -nostdlib -fPIC -ffreestanding -O3
+CC_OPTIONS := -march=rv32ic -I../kernel/include -nostdlib -fPIC -ffreestanding -O3
 SRC_FILES := 				\
+	entry.S					\
+	../kernel/src/uart.c	\
 	test.c
 OBJ_FILES := 				\
+	entry.o					\
+	uart.o					\
 	test.o
 
 build:
