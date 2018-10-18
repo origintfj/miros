@@ -279,7 +279,12 @@ int const run(int const argc, char const *const *argv) {
             error = 1;
         } else {
             error = 0;
-            vthread_join(proc_id);
+            void *rtn_val;
+            if (vthread_join(proc_id, &rtn_val)) {
+                printf("ERROR!");
+            } else {
+                //printf("\nExit status (%i)", (int const)rtn_val);
+            }
         }
     }
 

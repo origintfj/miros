@@ -1,3 +1,5 @@
+// TODO - catch thread exit return value
+
 #include <vthread32.h>
 
 #include <stdint.h>
@@ -15,6 +17,8 @@ struct thread_info {
     uint32_t const *stack_base_fd;
     thread_id_t join_to_id;
     uint32_t volatile wait_for_join;
+    //
+    uint32_t rtn_val;
     //
     struct thread_info *previous;
     struct thread_info *next;
@@ -40,7 +44,7 @@ thread_handle_t volatile dead_thread;
 vmutex32_t  thread_id_mutex;
 thread_id_t thread_id;
 
-#include <uart.h>
+//#include <uart.h> // TODO - remove
 
 static thread_id_t const vthread32_generate_id() {
     thread_id_t new_thread_id;
@@ -54,11 +58,13 @@ static thread_id_t const vthread32_generate_id() {
 
     return new_thread_id;
 }
-static void vthread32_return_handler(void) {
-    uint32_t form[1];
+static void vthread32_return_handler(void *const rtn_val) {
+    uint32_t form[2];
 
     form[0] = SYSCALL_VTHREAD_FINISHED;
+    form[1] = (uint32_t const)rtn_val;
 
+    //printf("In return_handler (%u).\n", rtn_val);
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 
     __builtin_unreachable();
@@ -233,7 +239,7 @@ thread_id_t const vthread32_create(void *const(*thread)(void *const), void *cons
 
     return temp_thread;
 }
-int const vthread32_join(thread_id_t const thread) {
+int const vthread32_join(thread_id_t const thread, void **const rtn_val_ptr) {
     int found = 1;
 
     vmutex32_wait_for_lock(&thread_ring_mutex, VMUTEX32_STATE_LOCKED);
@@ -257,13 +263,15 @@ int const vthread32_join(thread_id_t const thread) {
         return 1;
     }
 
+
     active_thread->wait_for_join = 1;
     while(active_thread->wait_for_join);
 
     return 0;
 }
-void vthread32_finished_handler(void) {
-    //printf("In finished_handler.\n");
+void vthread32_finished_handler(uint32_t const rtn_val) {
+    //printf("In finished_handler (%u).\n", rtn_val);
+    active_thread->rtn_val = rtn_val;
 
     vmutex32_wait_for_lock(&thread_ring_mutex, VMUTEX32_STATE_LOCKED);
     thread_handle_t thread_iterator;

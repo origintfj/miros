@@ -18,8 +18,8 @@ thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *
                                        uint32_t const mstatus);
 thread_id_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                    unsigned const stack_szw, uint32_t const mstatus);
-int const vthread32_join(thread_id_t const thread);
-void vthread32_finished_handler(void);
+int const vthread32_join(thread_id_t const thread, void **const rtn_val_ptr);
+void vthread32_finished_handler(uint32_t const rtn_val);
 void vthread32_switch(void);
 
 #define VTHREAD32_HANDOFF   __asm__ volatile ("1: csrs mstatus, 0x8; j 1b" ::: "memory");

@@ -68,12 +68,13 @@ uint64_t const vthread_create(void *const(*thread)(void *const), void *const arg
 
     return (uint64_t const)form[2] << 32 | (uint64_t const)form[1] << 0;
 }
-int const vthread_join(uint64_t const thread_id) {
-    uint32_t form[3];
+int const vthread_join(uint64_t const thread_id, void **const rtn_val_ptr) {
+    uint32_t form[4];
 
     form[0] = SYSCALL_VTHREAD_JOIN;
     form[1] = (uint32_t const)(thread_id >>  0);
     form[2] = (uint32_t const)(thread_id >> 32);
+    form[3] = (uint32_t const)rtn_val_ptr;
 
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 
@@ -171,7 +172,7 @@ size_t const fread(void *const buffer, size_t const size, size_t const count, fa
 //--------------------------------------------------------------
 // process functions
 //--------------------------------------------------------------
-uint32_t const proc_start(char const *const path, int const argc, char const *const *const argv) {
+uint64_t const proc_start(char const *const path, int const argc, char const *const *const argv) {
     uint32_t form[4];
 
     form[0] = SYSCALL_PROC_CREATE;
@@ -181,5 +182,5 @@ uint32_t const proc_start(char const *const path, int const argc, char const *co
 
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
 
-    return (size_t const)(form[1]);
+    return (uint64_t const)form[2] << 32 | (uint64_t const)form[1] << 0;
 }

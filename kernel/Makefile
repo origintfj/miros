@@ -17,6 +17,7 @@ SRC_FILES := 				\
 	src/syscall.c			\
 	src/spim.c				\
 	src/sd.c				\
+	src/vprocess32.c		\
 	src/uart.c				\
 	src/boot.c				\
 	src/miros.c				\
@@ -32,6 +33,7 @@ OBJ_FILES := 				\
 	syscall.o				\
 	spim.o					\
 	sd.o					\
+	vprocess32.o			\
 	uart.o					\
 	boot.o					\
 	miros.o					\

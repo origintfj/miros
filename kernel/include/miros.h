@@ -18,7 +18,7 @@ void free(void *const buffer);
 // thread functions
 unsigned const vthread_get_all(uint32_t **const list);
 uint64_t const vthread_create(void *const(*thread)(void *const), void *const arg);
-int const vthread_join(uint64_t const thread_id);
+int const vthread_join(uint64_t const thread_id, void **const rtn_val_ptr);
 // file system functions
 fat32_t *const fs_mount(sd_context_t *const sd_context);
 int const fs_dir_get(fat32_entry_t *const dir_entry, char const path[]);
@@ -29,6 +29,6 @@ int const fseek(fat32_file_t *stream, int long const offset, int const origin_id
 int long const ftell(fat32_file_t *const stream);
 size_t const fread(void *const buffer, size_t const size, size_t const count, fat32_file_t *stream);
 // process functions
-uint32_t const proc_start(char const *const path, int const argc, char const *const *const argv);
+uint64_t const proc_start(char const *const path, int const argc, char const *const *const argv);
 
 #endif
