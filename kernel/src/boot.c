@@ -135,8 +135,8 @@ void *const process_entry(void *const arg) {
 }
 */
 #include <vstring.h>
-uint32_t const process_start(fat32_t *const fat32, char const *const path, unsigned const stack_szw,
-                             int const argc, char const *const *const argv) {
+thread_id_t const process_start(fat32_t *const fat32, char const *const path, unsigned const stack_szw,
+                                int const argc, char const *const *const argv) {
     // open the program file
     fat32_file_t *const ifile = fat32_open(fat32, path);
     if (ifile == NULL) {
@@ -200,11 +200,11 @@ uint32_t const process_start(fat32_t *const fat32, char const *const path, unsig
     printf("arg_buffer        : %X\n", (uint32_t const)arg_buffer);
 */
 //*
-    thread_handle_t thread_handle;
-    thread_handle = vthread32_create_raw(process_entry, process_args,
-                                         process_container, stack_base_fd, 0x0080);
+    thread_id_t thread_id;
+    thread_id = vthread32_create_raw(process_entry, process_args,
+                                     process_container, stack_base_fd, 0x0080);
 /**/
-    return (uint32_t const)thread_handle;
+    return thread_id;
 }
 
 #include <syscall.h>

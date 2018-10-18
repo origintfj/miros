@@ -8,7 +8,7 @@
 #define VTHREAD32_CONTEXT_SZW   30
 
 struct thread_info {
-    uint64_t thread_id;
+    thread_id_t thread_id;
     void *container;
     uint32_t mstatus;
     uint32_t mepc;
@@ -21,6 +21,7 @@ struct thread_info {
 thread_info_t dummy;
 
 vmutex32_t      thread_ring_mutex;
+unsigned        thread_ring_size;
 thread_handle_t thread_ring;
 
 thread_handle_t active_thread;
@@ -34,13 +35,13 @@ thread_handle_t volatile finished_thread;
 vmutex32_t      dead_thread_mutex;
 thread_handle_t volatile dead_thread;
 
-vmutex32_t thread_id_mutex;
-uint64_t   thread_id;
+vmutex32_t  thread_id_mutex;
+thread_id_t thread_id;
 
 #include <uart.h>
 
-static uint64_t const vthread32_generate_id() {
-    uint64_t new_thread_id;
+static thread_id_t const vthread32_generate_id() {
+    thread_id_t new_thread_id;
 
     vmutex32_wait_for_lock(&thread_id_mutex, VMUTEX32_STATE_LOCKED);
 
@@ -127,6 +128,8 @@ int const vthread32_init(void *const(*thread)(void *const),
     thread_ring->previous = thread_ring;
     thread_ring->next     = thread_ring;
 
+    thread_ring_size = 1;
+
     dummy.next = thread_ring;
     active_thread = &dummy;
     //printf("In switch, active = 0x%X, ", active_thread);
@@ -143,8 +146,8 @@ int const vthread32_init(void *const(*thread)(void *const),
 
     return 0;
 }
-thread_handle_t const vthread32_get_active(void) {
-    return active_thread;
+thread_id_t const vthread32_get_active(void) {
+    return active_thread->thread_id;
 }
 unsigned const vthread32_get_all(thread_handle_t **const list) {
     thread_handle_t handle;
@@ -170,29 +173,28 @@ unsigned const vthread32_get_all(thread_handle_t **const list) {
 
     return thread_count;
 }
-thread_handle_t const vthread32_create_raw(void *const(*thread)(void *const), void *const arg,
-                                           void *const thread_container, uint32_t *const stack_base_fd,
-                                           uint32_t const mstatus) {
+thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *const arg,
+                                       void *const thread_container, uint32_t *const stack_base_fd,
+                                       uint32_t const mstatus) {
     uint32_t *thread_stack_base_fd;
     thread_handle_t temp_thread;
+    thread_id_t temp_thread_id;
 
     temp_thread = vmem32_alloc(sizeof(thread_info_t));
     if (temp_thread == VMEM32_NULL) {
-        return VMEM32_NULL;
+        return 0;
     }
     //printf("temp_thread = 0x%x\n", temp_thread);
 
     thread_stack_base_fd = stack_base_fd - VTHREAD32_CONTEXT_SZW;
-    if (thread_stack_base_fd == VMEM32_NULL) {
-        vmem32_free(temp_thread);
-        return VMEM32_NULL;
-    }
 
     thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
     thread_stack_base_fd[8] = (uint32_t const)arg;
 
+    temp_thread_id = vthread32_generate_id();
+
     // initialise the thread info. struct
-    temp_thread->thread_id     = vthread32_generate_id();
+    temp_thread->thread_id     = temp_thread_id;
     temp_thread->container     = thread_container;
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
@@ -203,41 +205,25 @@ thread_handle_t const vthread32_create_raw(void *const(*thread)(void *const), vo
     new_thread = temp_thread;
     vmutex32_unlock(&new_thread_mutex);
 
-    return temp_thread;
+    return temp_thread_id;
 }
-thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
-                                       unsigned const stack_szw, uint32_t const mstatus) {
-    uint32_t *thread_stack_base_fd;
+thread_id_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
+                                   unsigned const stack_szw, uint32_t const mstatus) {
+    uint32_t *stack_base_fd;
+    thread_id_t temp_thread;
     void *thread_container;
-    thread_handle_t temp_thread;
 
-    temp_thread = vmem32_alloc(sizeof(thread_info_t));
-    if (temp_thread == VMEM32_NULL) {
-        return VMEM32_NULL;
-    }
-    //printf("temp_thread = 0x%x\n", temp_thread);
-
-    thread_stack_base_fd = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
-                         + stack_szw - VTHREAD32_CONTEXT_SZW;
-    if (thread_stack_base_fd == VMEM32_NULL) {
-        vmem32_free(temp_thread);
-        return VMEM32_NULL;
+    stack_base_fd = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
+                  + stack_szw;
+    if (thread_container == NULL) {
+        return 0;
     }
 
-    thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
-    thread_stack_base_fd[8] = (uint32_t const)arg;
-
-    // initialise the thread info. struct
-    temp_thread->thread_id     = vthread32_generate_id();
-    temp_thread->container     = thread_container;
-    temp_thread->mstatus       = mstatus;
-    temp_thread->mepc          = (uint32_t const)thread;
-    temp_thread->stack_base_fd = thread_stack_base_fd;
-
-    vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
-    while (new_thread != VMEM32_NULL);
-    new_thread = temp_thread;
-    vmutex32_unlock(&new_thread_mutex);
+    temp_thread = vthread32_create_raw(thread, arg, thread_container, stack_base_fd, mstatus);
+    if (temp_thread == 0) {
+        vmem32_free(thread_container);
+        return 0;
+    }
 
     return temp_thread;
 }
@@ -268,6 +254,7 @@ void vthread32_switch(void) {
     if (!vmutex32_is_locked(&thread_ring_mutex)) {
         // insert the new thread (if any) into the ring
         if (new_thread != VMEM32_NULL) {
+            ++thread_ring_size;
             new_thread->next = active_thread->next;
             active_thread->next = new_thread;
             new_thread->previous = active_thread;
@@ -277,6 +264,7 @@ void vthread32_switch(void) {
 
         // remove the finished thread (if any) from the ring
         if (finished_thread != VMEM32_NULL && dead_thread == VMEM32_NULL) {
+            --thread_ring_size;
             if (finished_thread == active_thread) {
                 active_thread = active_thread->next;
             }

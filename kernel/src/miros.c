@@ -57,7 +57,7 @@ unsigned const vthread_get_all(uint32_t **const list) {
 
     return (unsigned const)(form[1]);
 }
-uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg) {
+uint64_t const vthread_create(void *const(*thread)(void *const), void *const arg) {
     uint32_t form[3];
 
     form[0] = SYSCALL_VTHREAD_CREATE;
@@ -65,6 +65,8 @@ uint32_t const vthread_create(void *const(*thread)(void *const), void *const arg
     form[2] = (uint32_t const)arg;
 
     __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (uint64_t const)form[2] << 32 | (uint64_t const)form[1] << 0;
 }
 //--------------------------------------------------------------
 // file system functions

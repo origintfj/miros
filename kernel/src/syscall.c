@@ -27,8 +27,11 @@ void syscall(uint32_t *const argv) {
     } else if (argv[0] == SYSCALL_VTHREAD_GETALL) {
         argv[1] = (uint32_t const)vthread32_get_all((thread_handle_t **const)(argv[1]));
     } else if (argv[0] == SYSCALL_VTHREAD_CREATE) {
-        argv[1] = (uint32_t const)vthread32_create((void *const(*)(void *const))argv[1],
-                                                   (void *const)argv[2], 1024u, 0x0080);
+        thread_id_t thread_id;
+        thread_id = vthread32_create((void *const(*)(void *const))argv[1],
+                                     (void *const)argv[2], 1024u, 0x0080);
+        argv[2] = (uint32_t const)(thread_id >> 32);
+        argv[1] = (uint32_t const)(thread_id >>  0);
     } else if (argv[0] == SYSCALL_VTHREAD_FINISHED) {
         vthread32_finished_handler();
     } else if (argv[0] == SYSCALL_FAT32_MOUNT) {
