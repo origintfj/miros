@@ -8,6 +8,7 @@
 #define VTHREAD32_CONTEXT_SZW   30
 
 struct thread_info {
+    uint64_t thread_id;
     void *container;
     uint32_t mstatus;
     uint32_t mepc;
@@ -33,8 +34,23 @@ thread_handle_t volatile finished_thread;
 vmutex32_t      dead_thread_mutex;
 thread_handle_t volatile dead_thread;
 
+vmutex32_t thread_id_mutex;
+uint64_t   thread_id;
+
 #include <uart.h>
 
+static uint64_t const vthread32_generate_id() {
+    uint64_t new_thread_id;
+
+    vmutex32_wait_for_lock(&thread_id_mutex, VMUTEX32_STATE_LOCKED);
+
+    new_thread_id = thread_id;
+    ++thread_id;
+
+    vmutex32_unlock(&thread_id_mutex);
+
+    return new_thread_id;
+}
 static void vthread32_return_handler(void) {
     uint32_t form[1];
 
@@ -98,7 +114,11 @@ int const vthread32_init(void *const(*thread)(void *const),
     thread_stack_base_fd[0] = (uint32_t const)vthread32_return_handler;
     thread_stack_base_fd[8] = (uint32_t const)arg;
 
+    vmutex32_init(&thread_id_mutex);
+    thread_id = 1;
+
     // initialise the thread info. struct
+    thread_ring->thread_id     = vthread32_generate_id();
     thread_ring->container     = thread_container;
     thread_ring->mstatus       = 0x1880;
     thread_ring->mepc          = (uint32_t const)thread;
@@ -172,6 +192,7 @@ thread_handle_t const vthread32_create_raw(void *const(*thread)(void *const), vo
     thread_stack_base_fd[8] = (uint32_t const)arg;
 
     // initialise the thread info. struct
+    temp_thread->thread_id     = vthread32_generate_id();
     temp_thread->container     = thread_container;
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
@@ -207,6 +228,7 @@ thread_handle_t const vthread32_create(void *const(*thread)(void *const), void *
     thread_stack_base_fd[8] = (uint32_t const)arg;
 
     // initialise the thread info. struct
+    temp_thread->thread_id     = vthread32_generate_id();
     temp_thread->container     = thread_container;
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
