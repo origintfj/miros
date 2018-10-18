@@ -18,6 +18,7 @@ void free(void *const buffer);
 // thread functions
 unsigned const vthread_get_all(uint32_t **const list);
 uint64_t const vthread_create(void *const(*thread)(void *const), void *const arg);
+int const vthread_join(uint64_t const thread_id);
 // file system functions
 fat32_t *const fs_mount(sd_context_t *const sd_context);
 int const fs_dir_get(fat32_entry_t *const dir_entry, char const path[]);

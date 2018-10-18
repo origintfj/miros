@@ -24,6 +24,8 @@ void syscall(uint32_t *const argv) {
         argv[1] = (uint32_t const)vmem32_alloc((size_t const)(argv[1]));
     } else if (argv[0] == SYSCALL_VMEM32_FREE) {
         vmem32_free((void *const)(argv[1]));
+    } else if (argv[0] == SYSCALL_VTHREAD_FINISHED) {
+        vthread32_finished_handler();
     } else if (argv[0] == SYSCALL_VTHREAD_GETALL) {
         argv[1] = (uint32_t const)vthread32_get_all((thread_handle_t **const)(argv[1]));
     } else if (argv[0] == SYSCALL_VTHREAD_CREATE) {
@@ -32,8 +34,8 @@ void syscall(uint32_t *const argv) {
                                      (void *const)argv[2], 1024u, 0x0080);
         argv[2] = (uint32_t const)(thread_id >> 32);
         argv[1] = (uint32_t const)(thread_id >>  0);
-    } else if (argv[0] == SYSCALL_VTHREAD_FINISHED) {
-        vthread32_finished_handler();
+    } else if (argv[0] == SYSCALL_VTHREAD_JOIN) {
+        argv[1] = (uint32_t const)vthread32_join((uint64_t const)argv[2] << 32 | (uint64_t const)argv[1] << 0);
     } else if (argv[0] == SYSCALL_FAT32_MOUNT) {
         //argv[1] = (uint32_t const)fat32_mount((void *const)argv[1]); // TODO
         fat32_root_fs = fat32_mount((sd_context_t *const)argv[1]);

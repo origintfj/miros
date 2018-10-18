@@ -274,11 +274,12 @@ int const run(int const argc, char const *const *argv) {
         strcpy(temp_path, "/bin/");
         strcat(temp_path, argv[0]);
         strupr(temp_path, temp_path);
-        if (proc_start(temp_path, argc, argv) == 0) {
+        uint64_t proc_id = proc_start(temp_path, argc, argv);
+        if (proc_id == 0) {
             error = 1;
         } else {
             error = 0;
-            //TODO wait for join
+            vthread_join(proc_id);
         }
     }
 

@@ -18,6 +18,7 @@ thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *
                                        uint32_t const mstatus);
 thread_id_t const vthread32_create(void *const(*thread)(void *const), void *const arg,
                                    unsigned const stack_szw, uint32_t const mstatus);
+int const vthread32_join(thread_id_t const thread);
 void vthread32_finished_handler(void);
 void vthread32_switch(void);
 

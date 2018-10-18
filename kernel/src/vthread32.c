@@ -13,6 +13,8 @@ struct thread_info {
     uint32_t mstatus;
     uint32_t mepc;
     uint32_t const *stack_base_fd;
+    thread_id_t join_to_id;
+    uint32_t volatile wait_for_join;
     //
     struct thread_info *previous;
     struct thread_info *next;
@@ -124,6 +126,8 @@ int const vthread32_init(void *const(*thread)(void *const),
     thread_ring->mstatus       = 0x1880;
     thread_ring->mepc          = (uint32_t const)thread;
     thread_ring->stack_base_fd = thread_stack_base_fd;
+    thread_ring->join_to_id    = 0;
+    thread_ring->wait_for_join = 0;
     //
     thread_ring->previous = thread_ring;
     thread_ring->next     = thread_ring;
@@ -199,6 +203,8 @@ thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *
     temp_thread->mstatus       = mstatus;
     temp_thread->mepc          = (uint32_t const)thread;
     temp_thread->stack_base_fd = thread_stack_base_fd;
+    temp_thread->join_to_id    = 0;
+    temp_thread->wait_for_join = 0;
 
     vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
     while (new_thread != VMEM32_NULL);
@@ -227,8 +233,49 @@ thread_id_t const vthread32_create(void *const(*thread)(void *const), void *cons
 
     return temp_thread;
 }
+int const vthread32_join(thread_id_t const thread) {
+    int found = 1;
+
+    vmutex32_wait_for_lock(&thread_ring_mutex, VMUTEX32_STATE_LOCKED);
+
+    thread_handle_t thread_iterator;
+    for (thread_iterator = thread_ring;
+         thread_iterator->next != thread_ring && thread_iterator->thread_id != thread;
+         thread_iterator = thread_iterator->next);
+
+    if (thread_iterator->thread_id == thread) {
+        thread_iterator->join_to_id = active_thread->thread_id;
+    } else if (new_thread->thread_id == thread) {
+        new_thread->join_to_id = active_thread->thread_id;
+    } else {
+        found = 0;
+    }
+
+    vmutex32_unlock(&thread_ring_mutex);
+
+    if (!found) {
+        return 1;
+    }
+
+    active_thread->wait_for_join = 1;
+    while(active_thread->wait_for_join);
+
+    return 0;
+}
 void vthread32_finished_handler(void) {
     //printf("In finished_handler.\n");
+
+    vmutex32_wait_for_lock(&thread_ring_mutex, VMUTEX32_STATE_LOCKED);
+    thread_handle_t thread_iterator;
+    for (thread_iterator = thread_ring;
+         thread_iterator->next != thread_ring && thread_iterator->thread_id != active_thread->join_to_id;
+         thread_iterator = thread_iterator->next);
+
+    if (thread_iterator->thread_id == active_thread->join_to_id) {
+        thread_iterator->wait_for_join = 0;
+    }
+    vmutex32_unlock(&thread_ring_mutex);
+
     vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
     while (finished_thread != VMEM32_NULL);
     finished_thread = active_thread;
@@ -277,6 +324,13 @@ void vthread32_switch(void) {
             dead_thread->next->previous = dead_thread->previous;
         }
     }
+
+    // choose next thread if new active thread is waiting for join
+    thread_handle_t thread_iterator;
+    for (thread_iterator = active_thread;
+         thread_iterator->wait_for_join != 0 && thread_iterator->next != active_thread;
+         thread_iterator = thread_iterator->next);
+    active_thread = thread_iterator;
 
     mstatus       = active_thread->mstatus;
     mepc          = active_thread->mepc;

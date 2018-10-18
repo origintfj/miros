@@ -68,6 +68,17 @@ uint64_t const vthread_create(void *const(*thread)(void *const), void *const arg
 
     return (uint64_t const)form[2] << 32 | (uint64_t const)form[1] << 0;
 }
+int const vthread_join(uint64_t const thread_id) {
+    uint32_t form[3];
+
+    form[0] = SYSCALL_VTHREAD_JOIN;
+    form[1] = (uint32_t const)(thread_id >>  0);
+    form[2] = (uint32_t const)(thread_id >> 32);
+
+    __asm__ volatile ("mv a0, %0; ecall" :: "r"(&form) : "a0", "memory");
+
+    return (int const)form[1];
+}
 //--------------------------------------------------------------
 // file system functions
 //--------------------------------------------------------------
