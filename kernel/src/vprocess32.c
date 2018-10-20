@@ -10,30 +10,30 @@ static void *const vprocess32_premain(void *const arg) { // TODO - move section 
     uint32_t const argv  = ((uint32_t const *)arg)[1];
     uint32_t const entry = ((uint32_t const *)arg)[2];
 
-    uint32_t const *const got_end = (uint32_t const *const)(((uint32_t const *)arg)[2] + (2 << 2));
-    uint32_t const *const bss_end = (uint32_t const *const)(((uint32_t const *)arg)[2] + (4 << 2));
+    uint32_t const got_end = *(uint32_t const *const)(((uint32_t const *)arg)[2] + (2 << 2)) + entry;
+    uint32_t const bss_end = *(uint32_t const *const)(((uint32_t const *)arg)[2] + (4 << 2)) + entry;
 
     //printf("\n");
     //printf("argc  : %X\n", argc);
     //printf("argv  : %X\n", argv);
     //printf("entry : %X\n", entry);
 
-    uint32_t *table_index;
+    uint32_t table_index;
 
     // got start
-    table_index = (uint32_t *)(((uint32_t const *)arg)[2] + (1 << 2));
+    table_index = *(uint32_t *const)(((uint32_t const *)arg)[2] + (1 << 2)) + entry;
     //printf("got_start : %X\n", table_index);
     //printf("got_end   : %X\n", got_end);
-    for (; table_index < got_end; ++table_index) {
-        //*table_index = *table_index + entry;
+    for (; table_index < got_end; table_index += 4) {
+        *(uint32_t *const)table_index = *(uint32_t *const)table_index + entry;
     }
 
     // bss start
-    table_index = (uint32_t *)(((uint32_t const *)arg)[2] + (3 << 2));
+    table_index = *(uint32_t *const)(((uint32_t const *)arg)[2] + (3 << 2)) + entry;
     //printf("bss_start : %X\n", table_index);
     //printf("bss_end   : %X\n", bss_end);
-    for (; table_index < got_end; ++table_index) {
-        //*table_index = 0;
+    for (; table_index < got_end; table_index += 4) {
+        *(uint32_t *const)table_index = 0;
     }
 
     __asm__ volatile ("mv a0, %0; mv a1, %1; jalr %2;"
