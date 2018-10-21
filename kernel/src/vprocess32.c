@@ -51,6 +51,9 @@ thread_id_t const vprocess32_start(fat32_t *const fat32, char const *const path,
     if (ifile == NULL) {
         return 0;
     }
+    uint32_t exe_header[5];
+    fat32_seek(ifile, 0, FAT32_SEEK_SET);
+    fat32_read(&exe_header, sizeof(uint32_t), 5, ifile);
 
     // calculate the size of the argv-buffer
     unsigned i, arg_buffer_szb;
@@ -60,10 +63,14 @@ thread_id_t const vprocess32_start(fat32_t *const fat32, char const *const path,
 
     // allocate a memory block for the program (stack, argv, program, and argv-buffer)
     fat32_seek(ifile, 0, FAT32_SEEK_END);
-    unsigned ifile_len = fat32_tell(ifile);
+    unsigned const ifile_len = fat32_tell(ifile);
+    unsigned const exe_padding_szb = (4 - (ifile_len & 0x3));
+    unsigned const bss_szb = (unsigned const)(exe_header[4] - exe_header[3]);
     uint8_t *const process_container = (uint8_t *const)vmem32_alloc(stack_szw * sizeof(uint32_t)
                                                                     + argc * sizeof(char *)
                                                                     + ifile_len * sizeof(uint8_t)
+                                                                    + exe_padding_szb * sizeof(uint8_t)
+                                                                    + bss_szb * sizeof(uint8_t)
                                                                     + arg_buffer_szb * sizeof(char));
 
     // assign the relevant sections of the buffer to appropriate pointers
@@ -77,7 +84,9 @@ thread_id_t const vprocess32_start(fat32_t *const fat32, char const *const path,
                                                                     + argc * sizeof(char *)];
     arg_buffer = (char *const)&process_container[stack_szw * sizeof(uint32_t)
                                                  + argc * sizeof(char *)
-                                                 + ifile_len * sizeof(uint8_t)];
+                                                 + ifile_len * sizeof(uint8_t)
+                                                 + exe_padding_szb * sizeof(uint8_t)
+                                                 + bss_szb * sizeof(uint8_t)];
 
     // copy the program into the container, and close the file
     fat32_seek(ifile, 0, FAT32_SEEK_SET);
