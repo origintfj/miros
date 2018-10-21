@@ -18,6 +18,7 @@ SRC_FILES := 				\
 	src/spim.c				\
 	src/sd.c				\
 	src/vprocess32.c		\
+	src/vtime32.c			\
 	src/uart.c				\
 	src/boot.c				\
 	src/miros.c				\
@@ -34,6 +35,7 @@ OBJ_FILES := 				\
 	spim.o					\
 	sd.o					\
 	vprocess32.o			\
+	vtime32.o				\
 	uart.o					\
 	boot.o					\
 	miros.o					\

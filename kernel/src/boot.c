@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <soc.h>
 #include <common.h>
+#include <vtime32.h>
 #include <uart.h>
 #include <vmem32.h>
 #include <vthread32.h>
@@ -11,13 +12,9 @@
 #include <fat32.h>
 fat32_t *fat32_root_fs; // TODO - move to time module
 
+vtime32_context_t timer0;
+
 extern uint8_t _mpool_start[];
-
-uint64_t volatile systime_us;
-
-uint64_t const time_us(void) {
-    return systime_us;
-}
 
 void *const boot_thread(void *const arg);
 
@@ -28,12 +25,8 @@ void boot(void) {
     printf("MiROS\n\n");
 
     // setup the timer interrupt with a 100us interval
-    systime_us = 0;
-    write_reg(TIMER0_BASE_ADDR + TIMER0_MAX_OFFSET, CLK_FREQ / 10000 - 1); // 100us
-    write_reg(TIMER0_BASE_ADDR + TIMER0_TIME_OFFSET, 0);
-    write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
-    write_reg(TIMER0_BASE_ADDR + TIMER0_CTRL_OFFSET,
-              TIMER0_CTRL_EN_MASK | TIMER0_CTRL_INT_EN_MASK);
+    vtime32_init(&timer0, TIMER0_BASE_ADDR, CLK_FREQ, 100);
+
     // enable the m-timer interrupt
     __asm__ volatile ("li t0, 0x80; csrs mie, t0" ::: "t0", "memory");
 
@@ -52,11 +45,19 @@ void boot(void) {
 }
 
 void *const gpio_time(void *const arg) {
-    uint64_t systime;
+    unsigned hex_time;
 
     while (1) {
-        systime = time_us();
-        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, systime);
+        hex_time = (timer0.time.days / 10) << 28
+                 | (timer0.time.days % 10) << 24
+                 | (timer0.time.hours / 10) << 20
+                 | (timer0.time.hours % 10) << 16
+                 | (timer0.time.minutes / 10) << 12
+                 | (timer0.time.minutes % 10) <<  8
+                 | (timer0.time.seconds / 10) <<  4
+                 | (timer0.time.seconds % 10) <<  0
+                 ;
+        write_reg(GPIO_BASE_ADDR + GPIO_IO_OFFSET, (uint32_t const)hex_time);
     }
     return NULL;
 }
@@ -140,7 +141,6 @@ void trap_usip(void) {
     __builtin_unreachable();
 }
 void trap_mtip(void) {
-    systime_us += 100;
+    vtime32_isr(&timer0);
     vthread32_switch();
-    write_reg(TIMER0_BASE_ADDR + TIMER0_INT_OFFSET, 0);
 }

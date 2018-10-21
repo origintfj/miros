@@ -24,14 +24,6 @@
 #define GPIO_DIR_OFFSET             4
 
 #define TIMER0_BASE_ADDR            0xA0000000
-#define TIMER0_TIME_OFFSET          0
-#define TIMER0_MAX_OFFSET           4
-#define TIMER0_CTRL_OFFSET          8
-#define TIMER0_INT_OFFSET           12
-//
-#define TIMER0_CTRL_INT_EN_MASK     2
-#define TIMER0_CTRL_EN_MASK         1
-
 #define SPIM_BASE_ADDR              0xC0000000
 
 #endif

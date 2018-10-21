@@ -6,16 +6,15 @@
 #include <fat32.h>
 #include <vprocess32.h>
 
-uint64_t const time_us(void); // TODO - move to time module
 extern fat32_t *fat32_root_fs; // TODO - move to a module
 
 //#include <uart.h>
 
 void syscall(uint32_t *const argv) {
     if (argv[0] == SYSCALL_TIME_GET_UP_TIME_US) {
-        uint64_t const uptime_us = time_us();
-        argv[1] = (uint32_t const)(uptime_us >>  0);
-        argv[2] = (uint32_t const)(uptime_us >> 32);
+        //uint64_t const uptime_us = time_us(); TODO
+        //argv[1] = (uint32_t const)(uptime_us >>  0);
+        //argv[2] = (uint32_t const)(uptime_us >> 32);
     } else if (argv[0] == SYSCALL_VMEM32_AVAILABLE) {
         argv[1] = (uint32_t const)vmem32_available();
     } else if (argv[0] == SYSCALL_VMEM32_MALLOC) {
