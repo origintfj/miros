@@ -2,16 +2,174 @@
 
 #include <uart.h>
 
-#define BUFFER_SZB      64
+#define ARG_BUFFER_SZB      256
 
-int buffer_index;
-char buffer[BUFFER_SZB];
+int arg_buffer_index;
+char arg_buffer_temp[ARG_BUFFER_SZB];
+char arg_buffer[ARG_BUFFER_SZB];
 int arg_count;
-char const *arg_list[BUFFER_SZB];
+char arg0_buffer[ARG_BUFFER_SZB]; // stores strcat of path and argv[0]
+char const *arg_list[ARG_BUFFER_SZB];
 
-#define PATH_SZB        256
+#define PATH_SZB            256
 
 char path[PATH_SZB];
+
+#define HIS_BUFFER_SZB      1024
+
+unsigned history_next_id;
+unsigned history_entries;
+char history_buffer[HIS_BUFFER_SZB];
+unsigned history_buffer_rd_index;
+unsigned history_buffer_wr_index;
+
+void history_init(void) {
+    history_next_id = 1;
+    history_entries = 0;
+
+    history_buffer_rd_index = 0;
+    history_buffer_wr_index = 0;
+}
+void history_print(void) {
+    unsigned entry_number = 0;
+    int next_entry = 1;
+    int i = 0;
+    //printf("entry count = %u\n", history_entries);
+    //printf("history_buffer_rd_index = %u\n", history_buffer_rd_index);
+    //printf("history_buffer_wr_index = %u\n", history_buffer_wr_index);
+    for (i = history_buffer_rd_index;
+         i != history_buffer_wr_index;
+         i = (i == HIS_BUFFER_SZB - 1 ? i = 0 : i + 1)) {
+
+        if (next_entry && entry_number <= history_entries) {
+            printf(" %u ", history_next_id - history_entries + entry_number);
+            ++entry_number;
+            next_entry = 0;
+        }
+
+        if (history_buffer[i] == '\0') {
+            printf("\n");
+            next_entry = 1;
+        } else {
+            printf("%c", history_buffer[i]);
+        }
+    }
+}
+void history_fix_pointers(void) {
+    if (history_buffer_wr_index == HIS_BUFFER_SZB) {
+        history_buffer_wr_index = 0;
+    }
+    if (history_buffer_wr_index == history_buffer_rd_index) {
+        if (history_buffer[history_buffer_rd_index] == '\0') {
+            --history_entries;
+        }
+        ++history_buffer_rd_index;
+        if (history_buffer_rd_index == HIS_BUFFER_SZB) {
+            history_buffer_rd_index = 0;
+        }
+
+        while (history_buffer[history_buffer_rd_index] != '\0') {
+            ++history_buffer_rd_index;
+            if (history_buffer_rd_index == HIS_BUFFER_SZB) {
+                history_buffer_rd_index = 0;
+            }
+        }
+        --history_entries;
+        ++history_buffer_rd_index;
+        if (history_buffer_rd_index == HIS_BUFFER_SZB) {
+            history_buffer_rd_index = 0;
+        }
+    }
+}
+void history_append(int const argc, char const *const *const argv) {
+    int i, j;
+    for (i = 0; i < argc; ++i) {
+        for (j = 0; argv[i][j] != '\0'; ++j) {
+            history_buffer[history_buffer_wr_index++] = argv[i][j];
+            history_fix_pointers();
+        }
+        if (i < argc - 1) {
+            history_buffer[history_buffer_wr_index++] = ' ';
+            history_fix_pointers();
+        }
+    }
+    history_buffer[history_buffer_wr_index++] = '\0';
+    history_fix_pointers();
+    ++history_next_id;
+    ++history_entries;
+}
+char const *const history_get_entry_at(int const i) {
+    return &history_buffer[i];
+}
+int const history_get_last(void) {
+    if (history_buffer_wr_index == history_buffer_rd_index) {
+        return -1;
+    }
+
+    int i = history_buffer_wr_index - 2;
+    for (; i < 0; i += HIS_BUFFER_SZB);
+    for (; i != history_buffer_rd_index && history_buffer[i] != '\0';
+           i = (i == 0 ? HIS_BUFFER_SZB - 1 : i - 1));
+
+    if (history_buffer_rd_index == i) {
+        return i;
+    }
+
+    ++i;
+    if (i == HIS_BUFFER_SZB) {
+        i = 0;
+    }
+
+    return i;
+}
+int const history_get_previous(int const current) {
+    if (current == history_buffer_rd_index) {
+        return current;
+    }
+
+    int i = current - 2;
+    for (; i < 0; i += HIS_BUFFER_SZB);
+    if (history_buffer_rd_index == i) {
+        return i;
+    }
+
+    for (; i != history_buffer_rd_index && history_buffer[i] != '\0';
+           i = (i == 0 ? HIS_BUFFER_SZB - 1 : i - 1));
+
+    if (history_buffer_rd_index == i) {
+        return i;
+    }
+
+    ++i;
+    if (i == HIS_BUFFER_SZB) {
+        i = 0;
+    }
+
+    return i;
+}
+int const history_get_next(int const current) {
+    int i;
+    for (i = current; i != history_buffer_wr_index && history_buffer[i] != '\0';
+                      i = (i == HIS_BUFFER_SZB - 1 ? 0 : i + 1));
+
+    if (i == history_buffer_wr_index) {
+        return current;
+    }
+
+    ++i;
+    if (i == HIS_BUFFER_SZB) {
+        i = 0;
+    }
+
+    if (i == history_buffer_wr_index) {
+        return current;
+    }
+
+    return i;
+}
+int const history_is_empty() {
+    return history_buffer_wr_index == history_buffer_rd_index;
+}
 
 unsigned const path_next(char str_next[], char const str_path[], unsigned i) {
     unsigned j;
@@ -31,8 +189,8 @@ char *const path_strip_last(char str_path[]) {
     str_path[i] = '\0';
     return str_path;
 }
-int const run(int const argc, char const *const *argv) {
-    int error = 0;
+int const execute(int const argc, char const *const *const argv) {
+    int status = 0;
 
     if (!strcmp(argv[0], "ls")) {
         if (argc == 1 || argc == 2) {
@@ -46,8 +204,8 @@ int const run(int const argc, char const *const *argv) {
                 } else {
                     strcpy(temp_path, path);
                     strcat(temp_path, argv[1]);
-                    strcat(temp_path, "/");
                 }
+                strcat(temp_path, "/");
             }
             strupr(temp_path, temp_path);
 
@@ -70,38 +228,6 @@ int const run(int const argc, char const *const *argv) {
             }
         } else {
             printf("\n%s: Too many arguments", argv[0]);
-        }
-    } else if (!strcmp(argv[0], "cat")) {
-        if (argc == 2) {
-            char temp_path[BUFFER_SZB];
-            if (strlen(path) + 1 + strlen(argv[1]) < FAT32_MAX_PATH_LENGTH) {
-                if (argv[1][0] == '/') {
-                    strcpy(temp_path, argv[1]);
-                } else {
-                    strcpy(temp_path, path);
-                    strcat(temp_path, argv[1]);
-                }
-                strupr(temp_path, temp_path);
-
-                fat32_file_t *ifile = fopen(temp_path);
-                if (ifile != NULL) {
-                    fseek(ifile, 0, FAT32_SEEK_END);
-                    unsigned ifile_len = ftell(ifile);
-                    char *const buffer = (char *const)malloc(ifile_len * sizeof(char) + 1);
-                    fseek(ifile, 0, FAT32_SEEK_SET);
-                    fread(buffer, sizeof(char), ifile_len, ifile);
-                    buffer[ifile_len] = '\0';
-                    fclose(ifile);
-                    printf("\n%s", buffer);
-                    free(buffer);
-                } else {
-                    printf("\nCannot open file '%s'", temp_path);
-                }
-            } else {
-                printf("\n%s: Path too long", argv[0]);
-            }
-        } else {
-            printf("\nUSAGE:\ncat <file name>");
         }
     } else if (!strcmp(argv[0], "cd")) {
         if (argc == 2) {
@@ -142,214 +268,38 @@ int const run(int const argc, char const *const *argv) {
         } else {
             printf("\nUSAGE:\ncd <path>");
         }
-    } else if (!strcmp(argv[0], "tot")) {
-        unsigned i;
-        uint32_t *thread_list;
-        unsigned thread_count;
-
-        printf("\nThreads in flight:\n");
-        thread_count = vthread_get_all(&thread_list);
-        for (i = 0; i < thread_count; ++i) {
-            printf("%X\n", thread_list[i]);
-        }
-    } else if (!strcmp(argv[0], "xd")) {
-        if (argc >= 2 && argc <= 3) {
-            unsigned i;
-            int count;
-            uint32_t addr;
-
-            count = 32;
-            if (argc == 3) {
-                count = atoi(argv[2]);
-                if (count < 0) {
-                    count = -count;
-                }
-            }
-            addr = (uint32_t const)(xtoi(argv[1]) & -4);
-            printf("\nDumping %i word(s) from address 0x%X:\n", count, addr);
-            for (i = 0; i < (unsigned const)count; ++i) {
-                if ((i & 3) == 0) {
-                    printf("\n%X: ", (addr + i * sizeof(uint32_t)));
-                }
-                printf("%X ", ((uint32_t const *const)addr)[i]);
-            }
-        } else {
-            printf("\nUSAGE:\nxd <hex-address> [ <word-count> ]");
-        }
+    } else if (!strcmp(argv[0], "history")) {
         printf("\n");
-    } else if (!strcmp(argv[0], "mav")) {
-        if (argc != 1) {
-            printf("\nToo many arguments.");
-        } else {
-            printf("\n%u KiB free.", mavailable() >> 10);
-        }
-        printf("\n");
-    } else if (!strcmp(argv[0], "free")) { // TODO - clean up
-        if (argc == 2) {
-            uint8_t *const buffer = (uint8_t *const)xtoi(argv[1]);
-            
-            free(buffer);
-        } else {
-            printf("\nUSAGE:\nfree <address of container to be freed>\n");
-        }
-/*
-    } else if (!strcmp(argv[0], "upload")) { // TODO - clean up
-        if (argc == 2 || argc == 3) {
-            unsigned const size = atoi(argv[1]);
-            uint8_t *const buffer = (uint8_t *const)malloc(size);
-            
-            if (buffer == NULL) {
-                printf("\nNot enough memory!");
-            } else {
-                unsigned i;
-                uint8_t c;
-
-                printf("\nPaste the ASCII hex image into the terminal...");
-                for (i = 0, c = '\0'; c != 'q' && i < (size << 1); ++i) {
-                    uint8_t byte;
-
-                    do {
-                        c = (uint8_t const)uart_getc();
-                    } while ( !( (c == 'q') ||
-                                 (c >= '0' && c <= '9') ||
-                                 (c >= 'a' && c <= 'f') ||
-                                 (c >= 'A' && c <= 'F') ) );
-                    if (c == 'q') {
-                        i = 2 * size;
-                    } else if (c >= '0' && c <= '9') {
-                        c = c - '0';
-                    } else if (c >= 'a' && c <= 'f') {
-                        c = c - 'a' + 10;
-                    } else if (c >= 'A' && c <= 'F') {
-                        c = c - 'A' + 10;
-                    }
-                    byte = byte << 4;
-                    byte = byte | c;
-
-                    if (i & 1) {
-                        buffer[i >> 1] = byte;
-                        //printf("%x=%x\n", &(buffer[i >> 1]), byte);
-                    }
-                }
-                if (c == 'q') {
-                    printf("ABORTED!\nUpload canceled", buffer);
-                    free(buffer);
-                } else {
-                    printf("done!\nAddress = %X (HEX)", buffer);
-                    if (argc == 3) {
-                        if (!strcmp(argv[2], "m")) {
-                            if (fs_mount(buffer) != NULL) {
-                                strcpy(path, "/");
-                            } else {
-                                strcpy(path, "");
-                                printf("\nUnsupported file system type");
-                            }
-                        } else {
-                            printf("\nBad 3rd argument.  Use 'm' to mount image.");
-                        }
-                    }
-                }
-            }
-        } else {
-            printf("\nUSAGE:\nupload <size (bytes)>\nThen wait for prompt.");
-        }
-        printf("\n");
-*/
-    } else if (!strcmp(argv[0], "ut")) { // TODO - fix this
-        if (argc != 1) {
-            printf("\nToo many arguments.");
-        } else {
-            uint64_t uptime_us;
-
-            uptime_us = get_up_time_us() >> 6;
-            printf("\nBROKEN!\n%u days, %u hours, %u minutes, %u seconds",
-                   (uint32_t const)(uptime_us / 15625 / 60 / 60 / 24),
-                   (uint32_t const)(uptime_us / 15625 / 60 / 60),
-                   (uint32_t const)(uptime_us / 15625 / 60),
-                   (uint32_t const)(uptime_us / 15625));
-        }
-        printf("\n");
+        history_print();
+    } else if (!strcmp(argv[0], "p")) {
+        int his = history_get_last();
+        do {
+            printf("\n%u '%s'\n", his, history_get_entry_at(his));
+        } while ((his = history_get_previous(his)) != -1);
+    } else if (!strcmp(argv[0], "exit!")) {
+        status = -1;
     } else {
-        char temp_path[PATH_SZB];
-        strcpy(temp_path, "/bin/");
-        strcat(temp_path, argv[0]);
-        strupr(temp_path, temp_path);
-        uint64_t proc_id = proc_start(temp_path, argc, argv);
-        if (proc_id == 0) {
-            error = 1;
-        } else {
-            error = 0;
-            void *rtn_val;
-            if (vthread_join(proc_id, &rtn_val)) {
-                printf("ERROR!");
-            } else {
-                //printf("\nExit status (%i)", (int const)rtn_val);
-            }
-        }
+        status = 1;
     }
 
-    return error;
+    return status;
 }
-int const execute(int const argc, char const *const *const argv,
-                  char const *const buffer) {
-    char *str_buffer;
-    void *arg_buffer;
-    char const **arg_vector;
-    int i;
-    int error;
+int const run(char *const app, int const argc, char const *const *argv) {
+    uint64_t proc_id = proc_start(app, argc, argv);
 
-    arg_buffer = malloc(BUFFER_SZB + BUFFER_SZB * sizeof(char *));
-    //printf("\nbuffer = %X\n", (uint32_t const)arg_buffer);
-
-    // set the str_buffer pointer to the start of the arg_buffer
-    str_buffer = (char *const)arg_buffer;
-    // set the arg_vector pointer to that section of the arg_buffer
-    arg_vector = (char const **const)((char *const)arg_buffer + BUFFER_SZB);
-    // copy the string to the str_buffer
-    for (i = 0; buffer[i] != '\0'; ++i) {
-        str_buffer[i] = buffer[i];
-    }
-    str_buffer[i] = '\0';
-    // copy the argv to the argv
-    for (i = 0; i < argc; ++i) {
-        arg_vector[i] = argv[i] + (arg_vector - argv);
+    if (proc_id == 0) {
+        return 1;
     }
 
-    //printf("\nExecuting from the arg list (count = %i)\n", argc);
-    for (i = 0; i < argc; ++i) {
-        //printf("'%s'\n", argv[i]);
+    void *rtn_val;
+    if (vthread_join(proc_id, &rtn_val)) {
+        printf("ERROR!");
+    } else {
+        //printf("\nExit status (%i)", (int const)rtn_val);
     }
-    error = run(argc, argv);
 
-    free(arg_buffer);
-    return error;
+    return 0;
 }
-/*
-#define HISTORY_BUFFER_SZB      1000
-
-char *history_buffer;
-unsigned history_head;
-unsigned history_tail;
-
-void history_init(void) {
-    history_head = 0;
-    history_tail = 0;
-
-    history_buffer = (char *const)malloc(HISTORY_BUFFER_SZB);
-}
-void history_append(char const *const str) {
-    unsigned i;
-
-    for (i = 0; str[i] != '\0'; ++i) {
-        history_buffer[history_head + i] = str[i];
-    }
-    history_head += i + 1;
-    history_buffer[history_head++] = '\0';
-}
-void history_print(void) {
-    for (i = history_tail; i < ;
-}
-*/
 void print_prompt() {
     printf("shell:");
     printf("%c[36m", 0x1b);
@@ -358,7 +308,11 @@ void print_prompt() {
     printf("# ");
 }
 void *const shell(void *const arg) {
+//int const main(int const argc, char const *const argv) {
     char c;
+
+    history_init();
+    int history_index = -1;
 
     strcpy(path, "/");
 
@@ -366,52 +320,118 @@ void *const shell(void *const arg) {
     printf("\n");
     print_prompt();
 
-    buffer_index = 0;
+    arg_buffer_index = 0;
 
-    while (1) {
+    int exit = 0;
+    while (!exit) {
         c = uart_getc();
-        if (buffer_index < BUFFER_SZB - 1 && c >= 32 && c <= 126) {
+        if (arg_buffer_index < ARG_BUFFER_SZB - 1 && c >= 32 && c <= 126) {
             uart_putc(c);
-            buffer[buffer_index] = c;
-            ++buffer_index;
-        } else if (buffer_index < BUFFER_SZB && c == 0x0d) { // enter
-            int i;
-
-            buffer[buffer_index] = '\0';
+            arg_buffer[arg_buffer_index] = c;
+            ++arg_buffer_index;
+        } else if (arg_buffer_index < ARG_BUFFER_SZB && c == 0x1b) { // escape
+            c = uart_getc();
+            if (c == '[') {
+                c = uart_getc();
+                if (c == 'A') { // up
+                    if (!history_is_empty() && history_index < 0) {
+                        history_index = history_get_last();
+                    }
+                    if (history_index >= 0) {
+                        printf("%c[2K\r", 0x1b);
+                        print_prompt();
+                        strcpy(arg_buffer, history_get_entry_at(history_index));
+                        arg_buffer_index = strlen(arg_buffer);
+                        history_index = history_get_previous(history_index);
+                        printf("%s", arg_buffer);
+                    }
+                } else if (c == 'B') { // down
+                    if (history_index >= 0) {
+                        history_index = history_get_next(history_index);
+                        printf("%c[2K\r", 0x1b);
+                        print_prompt();
+                        strcpy(arg_buffer, history_get_entry_at(history_index));
+                        arg_buffer_index = strlen(arg_buffer);
+                        printf("%s", arg_buffer);
+                    }
+                } else if (c == 'D') { // left
+/*
+                    printf("%c[2K\r", 0x1b);
+                    print_prompt();
+                    strcpy(arg_buffer_temp, arg_buffer);
+                    arg_buffer_temp[arg_buffer_index - 1] = '\0';
+                    printf("%s", arg_buffer_temp);
+                    printf("%c[D", 0x1b);
+*/
+                } else if (c == 'C') { // right
+/*
+                    printf("%c[2K\r", 0x1b);
+                    print_prompt();
+                    printf("%c[C", 0x1b);
+*/
+                }
+            }
+        } else if (arg_buffer_index < ARG_BUFFER_SZB && c == 0x0d) { // enter
+            history_index = -1;
+            arg_buffer[arg_buffer_index] = '\0';
 
             // populate the arg_list and set arg_count
-            for (i = 0, arg_count = 0; buffer[i] != '\0'; ) {
-                if (buffer[i] == ' ') {
-                    buffer[i] = '\0';
+            int i;
+            for (i = 0, arg_count = 0; arg_buffer[i] != '\0'; ) {
+                if (arg_buffer[i] == ' ') {
+                    arg_buffer[i] = '\0';
                     ++i;
-                    for (; buffer[i] == ' '; ++i);
+                    for (; arg_buffer[i] == ' '; ++i);
                 }
-                if (buffer[i] != '\0') {
-                    arg_list[arg_count] = &(buffer[i]);
+                if (arg_buffer[i] != '\0') {
+                    arg_list[arg_count] = &(arg_buffer[i]);
                     ++arg_count;
                 }
-                for (; buffer[i] != '\0' && buffer[i] != ' '; ++i);
+                for (; arg_buffer[i] != '\0' && arg_buffer[i] != ' '; ++i);
             }
             if (arg_count > 0) {
-                if (execute(arg_count, arg_list, buffer)) {
-                    printf("\n%s: command not found", arg_list[0]);
+                int status;
+                char const *arg0_temp;
+                status = execute(arg_count, arg_list);
+                if (status == -1) {
+                    exit = 1;
+                } else if (status > 0) {
+                    char const *const app_name = arg_list[0];
+                    char app_path[PATH_SZB + ARG_BUFFER_SZB];
+                    strcpy(app_path, "/bin/");
+                    strcat(app_path, app_name);
+                    strcpy(arg0_buffer, path);
+                    strcat(arg0_buffer, app_name);
+                    arg0_temp = arg_list[0];
+                    arg_list[0] = arg0_buffer;
+                    //printf("\n'%s', '%s', '%s'", app_path, app_name, arg0_buffer);
+                    strupr(app_path, app_path);
+                    status = run(app_path, arg_count, arg_list);
+                    if (status) {
+                        printf("\n%s: command not found", app_name);
+                    }
+                }
+                arg_list[0] = arg0_temp;
+                if (status == 0) {
+                    history_append(arg_count, arg_list);
                 }
             }
 
-            buffer_index = 0;
+            arg_buffer_index = 0;
             printf("\n");
             print_prompt();
-        } else if (buffer_index > 0 && c == 0x08) { // backspace
-            --buffer_index;
-            buffer[buffer_index] = '\0';
+        } else if (arg_buffer_index > 0 && c == 0x08) { // backspace
+            --arg_buffer_index;
+            arg_buffer[arg_buffer_index] = '\0';
             printf("\r");
             print_prompt();
-            printf("%s ", buffer);
+            printf("%s ", arg_buffer);
             printf("\r");
             print_prompt();
-            printf("%s", buffer);
+            printf("%s", arg_buffer);
         }
     }
 
+    //return 0;
     return NULL;
 }
