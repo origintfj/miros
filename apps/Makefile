@@ -11,18 +11,22 @@ CC_OPTIONS := -march=rv32ic -I../kernel/include -nostdlib -fPIC -ffreestanding -
 SRC_FILES := 				\
 	entry.S					\
 	../kernel/src/uart.c	\
-	test.c
+	../kernel/src/miros.c	\
+	../kernel/src/vstring.c	\
+	$(APP).c
 OBJ_FILES := 				\
 	entry.o					\
 	uart.o					\
-	test.o
+	miros.o					\
+	vstring.o				\
+	$(APP).o
 
 build:
 	$(CC) $(SRC_FILES) $(CC_OPTIONS) -c
-	$(LD) $(OBJ_FILES) $(LD_OPTIONS) -lgcc -o test.out
-	$(OBJCOPY) -O ihex test.out test.hex
-	$(OBJCOPY) -O binary test.out test.bin
-	$(OBJDUMP) -D test.out > test.dis
+	$(LD) $(OBJ_FILES) $(LD_OPTIONS) -lgcc -o $(APP).out
+	$(OBJCOPY) -O ihex $(APP).out $(APP).hex
+	$(OBJCOPY) -O binary $(APP).out $(APP)
+	$(OBJDUMP) -D $(APP).out > $(APP).dis
 	#$(AR) rcs libsos32.a src/system.c
 	#ll fattest/fat32fs.img
 
