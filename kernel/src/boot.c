@@ -23,6 +23,7 @@ void boot(void) {
     uint32_t const *i;
 
     printf("MiROS\n\n");
+    //device_enumerate();
 
     // setup the timer interrupt with a 100us interval
     vtime32_init(&timer0, TIMER0_BASE_ADDR, CLK_FREQ, 100);
@@ -67,6 +68,14 @@ void *const shell(void *const arg);
 #include <sd.h>
 
 void *const boot_thread(void *const arg) {
+/*
+    int i;
+    for (i = 0; soc_device_table[i].type[0] != '\0'; ++i) {
+        printf("Device '%s' @ 0x%x\n", soc_device_table[i].type, soc_device_table[i].dev_base_addr);
+    }
+*/
+
+
     printf("%c[0m", 0x1b);
     printf("In boot_thread.\n");
     vthread32_create(gpio_time, NULL, 1024u, 0x1880);
@@ -78,6 +87,14 @@ void *const boot_thread(void *const arg) {
         return NULL;
     }
     printf("SUCCESSS (%X)", (uint32_t const)sd_context);
+
+    printf("\nInitalising SD card with context %X...", (uint32_t const)sd_context);
+    sd_init(sd_context);
+    if (sd_init(sd_context)) {
+        printf("FAILED!");
+        return NULL;
+    }
+    printf("SUCCESSS");
 
     printf("\nAttempting FAT32 file system mount with SD context %X...", (uint32_t const)sd_context);
     fat32_root_fs = fat32_mount(sd_context);

@@ -26,4 +26,14 @@
 #define TIMER0_BASE_ADDR            0xA0000000
 #define SPIM_BASE_ADDR              0xC0000000
 
+#include <stdint.h>
+
+#define SOC_DEVICE_TYPE_SZB         32
+
+typedef struct soc_device {
+    char type[SOC_DEVICE_TYPE_SZB];
+    uint32_t dev_base_addr;
+    uint32_t dev_szb;
+} soc_device_t;
+
 #endif

@@ -12,7 +12,7 @@ SECTIONS
     .text          ALIGN(64) : { *(.vector_table) }
     .text           ALIGN(4) : { *(.mtvec) }
     .text           ALIGN(4) : { *(.text*) }
-    .data           ALIGN(4) : { *(.data) }
+    .data           ALIGN(4) : { *(.data*) }
     .rodata         ALIGN(4) : { *(.rodata*) }
     /*.rodata         ALIGN(4) : { *(.rodata.str1.4) }*/
     . = ALIGN(4);
