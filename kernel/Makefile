@@ -8,40 +8,13 @@ OBJDUMP := $(TOOLCHAIN_DIR)/bin/riscv32-unknown-elf-objdump
 
 LD_OPTIONS := -L$(TOOLCHAIN_DIR)/lib/gcc/riscv32-unknown-elf/7.2.0/ -T miros.ld --no-relax
 CC_OPTIONS := -march=rv32ic -I./include -nostdlib -fPIC -ffreestanding -O3
-SRC_FILES := 				\
-	src/entry.S				\
-	src/vmutex32.c			\
-	src/vthread32_asm.S		\
-	src/vthread32.c			\
-	src/vmem32.c			\
-	src/syscall.c			\
-	src/spim.c				\
-	src/sd.c				\
-	src/vprocess32.c		\
-	src/vtime32.c			\
-	src/uart.c				\
-	src/boot.c				\
-	src/miros.c				\
-	src/vstring.c			\
-	src/fat32.c				\
-	src/shell.c
-OBJ_FILES := 				\
-	entry.o					\
-	vmutex32.o				\
-	vthread32_asm.o			\
-	vthread32.o				\
-	vmem32.o				\
-	syscall.o				\
-	spim.o					\
-	sd.o					\
-	vprocess32.o			\
-	vtime32.o				\
-	uart.o					\
-	boot.o					\
-	miros.o					\
-	vstring.o				\
-	fat32.o					\
-	shell.o
+
+SRC_CFILES = $(wildcard src/*.c)
+SRC_SFILES = $(wildcard src/*.S)
+SRC_FILES  = $(SRC_CFILES) $(SRC_SFILES)
+
+OBJ_FILES  = $(patsubst src/%.c,%.o,$(SRC_CFILES))
+OBJ_FILES += $(patsubst src/%.S,%.o,$(SRC_SFILES))
 
 build:
 	$(CC) $(SRC_FILES) $(CC_OPTIONS) -c

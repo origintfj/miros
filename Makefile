@@ -3,7 +3,7 @@ SHELL := /bin/bash
 all:
 	pushd kernel ; make ; popd
 	cp kernel/miros.hex .
-	pushd apps ; make ; popd
+	#pushd apps ; make ; popd
 	#pushd fat32 ; make ; popd
 	#cp fat32/fat32fs.x .
 
