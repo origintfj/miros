@@ -4,8 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define VMEM32_NULL     ((void *const)0)
-
 void vmem32_dump_table(void);
 void vmem32_init(uint8_t *const first_byte, uint8_t *const last_byte);
 unsigned const vmem32_available(void);

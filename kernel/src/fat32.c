@@ -198,15 +198,15 @@ fat32_t *const fat32_mount(sd_context_t *const sd_context) {
     int error = 0;
 
     fat32_t *const fat32 = (fat32_t *const)vmem32_alloc(sizeof(fat32_t));
-    if (fat32 == VMEM32_NULL) {
-        return VMEM32_NULL;
+    if (fat32 == NULL) {
+        return NULL;
     }
     fat32->dev_buffer.sd_context = sd_context;
     fat32->dev_buffer.dev_block_number = 0;
     fat32->dev_buffer.dev_block_buffer = (uint8_t *const)vmem32_alloc(DEV_BLOCK_BUFFER_SZB);
-    if (fat32->dev_buffer.dev_block_buffer == VMEM32_NULL) {
+    if (fat32->dev_buffer.dev_block_buffer == NULL) {
         vmem32_free(fat32);
-        return VMEM32_NULL;
+        return NULL;
     }
     error |= sd_seek(sd_context, 0, SD_SEEK_SET);
     uint32_t const read_count = sd_read(fat32->dev_buffer.dev_block_buffer, sizeof(uint8_t),
@@ -240,14 +240,14 @@ fat32_t *const fat32_mount(sd_context_t *const sd_context) {
     if (error) {
         vmem32_free(fat32->dev_buffer.dev_block_buffer);
         vmem32_free(fat32);
-        return VMEM32_NULL;
+        return NULL;
     }
 
     return fat32;
 }
 int const fat32_dir_get(fat32_t *const fat32, fat32_entry_t *const dir_entry, char const path[]) {
     // TODO - remove requirment for trailing '/'
-    if (fat32 == VMEM32_NULL) {
+    if (fat32 == NULL) {
         return 1;
     }
 
@@ -291,8 +291,8 @@ int const fat32_get_entry(fat32_t *const fat32, fat32_entry_t *const fat32_entry
     }
 }
 fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
-    if (fat32 == VMEM32_NULL) {
-        return VMEM32_NULL;
+    if (fat32 == NULL) {
+        return NULL;
     }
     int i;
     int match;
@@ -317,7 +317,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
         }
     }
     if (!found_dir) {
-        return VMEM32_NULL;
+        return NULL;
     }
     //printf("\nDF<%s>", file_name);
 
@@ -334,7 +334,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     } while (match == 0 && !eod);
 
     if (!match) {
-        return VMEM32_NULL;
+        return NULL;
     }
     //printf("\nM");
 
@@ -347,7 +347,7 @@ fat32_file_t *const fat32_open(fat32_t *const fat32, char const path[]) {
     return fat32_file_handle;
 }
 int const fat32_close(fat32_file_t *const fat32_file_handle) {
-    if (fat32_file_handle == VMEM32_NULL) {
+    if (fat32_file_handle == NULL) {
         return 1;
     }
     // TODO flush outstanding writes etc...

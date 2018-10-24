@@ -84,7 +84,7 @@ void *const vmem32_alloc(size_t const n_bytes) {
     uint32_t page_count;
 
     if (n_bytes == 0) {
-        return VMEM32_NULL;
+        return NULL;
     }
 
     remainder = n_bytes & VMEM32_PAGE_SZB_MASK;
@@ -112,7 +112,7 @@ void *const vmem32_alloc(size_t const n_bytes) {
 
     // generate pointer
     if (alloc_start_page == 0) {
-        return VMEM32_NULL;
+        return NULL;
     }
     return (void *const)(mpool_start + (alloc_start_page << VMEM32_PAGE_SZBX));
 }

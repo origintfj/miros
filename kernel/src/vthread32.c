@@ -72,11 +72,11 @@ static void vthread32_return_handler(void *const rtn_val) {
 static void *const vthread32_cleanup_deamon(void *const arg) {
     //printf("Starting cleanup deamon-----------.\n");
     while (1) {
-        while (dead_thread == VMEM32_NULL);
+        while (dead_thread == NULL);
         //printf("Running cleanup on thread 0x%X.\n", (uint32_t const)dead_thread);
         vmem32_free(dead_thread->container);
         vmem32_free(dead_thread);
-        dead_thread = VMEM32_NULL;
+        dead_thread = NULL;
     }
 
     __builtin_unreachable();
@@ -84,7 +84,7 @@ static void *const vthread32_cleanup_deamon(void *const arg) {
 /* TODO - implement this
 int const vthread32_kill(thread_handle_t const thread) {
     vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
-    while (finished_thread != VMEM32_NULL);
+    while (finished_thread != NULL);
     finished_thread = thread;
     vmutex32_unlock(&finished_thread_mutex);
 }
@@ -98,13 +98,13 @@ int const vthread32_init(void *const(*thread)(void *const),
 
     kernel_stack_base_fd = vmem32_alloc(kernel_stack_szw << 2)
                          + kernel_stack_szw;
-    if (kernel_stack_base_fd == VMEM32_NULL) {
+    if (kernel_stack_base_fd == NULL) {
         return 1;
     }
     //printf("Kernel stack = 0x%x\n", kernel_stack_base_fd);
 
     thread_ring = vmem32_alloc(sizeof(thread_info_t));
-    if (thread_ring == VMEM32_NULL) {
+    if (thread_ring == NULL) {
         vmem32_free(kernel_stack_base_fd);
         return 2;
     }
@@ -112,7 +112,7 @@ int const vthread32_init(void *const(*thread)(void *const),
 
     thread_stack_base_fd = (uint32_t *const)(thread_container = vmem32_alloc(stack_szw << 2))
                          + stack_szw - VTHREAD32_CONTEXT_SZW;
-    if (thread_stack_base_fd == VMEM32_NULL) {
+    if (thread_stack_base_fd == NULL) {
         vmem32_free(kernel_stack_base_fd);
         vmem32_free(thread_ring);
         return 3;
@@ -146,11 +146,11 @@ int const vthread32_init(void *const(*thread)(void *const),
 
     vmutex32_init(&thread_ring_mutex);
     vmutex32_init(&new_thread_mutex);
-    new_thread = VMEM32_NULL;
+    new_thread = NULL;
     vmutex32_init(&finished_thread_mutex);
-    finished_thread = VMEM32_NULL;
+    finished_thread = NULL;
     vmutex32_init(&dead_thread_mutex);
-    dead_thread = VMEM32_NULL;
+    dead_thread = NULL;
 
     vthread32_create(vthread32_cleanup_deamon, NULL, 1024u, 0x1880);
 
@@ -191,7 +191,7 @@ thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *
     thread_id_t temp_thread_id;
 
     temp_thread = vmem32_alloc(sizeof(thread_info_t));
-    if (temp_thread == VMEM32_NULL) {
+    if (temp_thread == NULL) {
         return 0;
     }
     //printf("temp_thread = 0x%x\n", temp_thread);
@@ -213,7 +213,7 @@ thread_id_t const vthread32_create_raw(void *const(*thread)(void *const), void *
     temp_thread->wait_for_join = 0;
 
     vmutex32_wait_for_lock(&new_thread_mutex, VMUTEX32_STATE_LOCKED);
-    while (new_thread != VMEM32_NULL);
+    while (new_thread != NULL);
     new_thread = temp_thread;
     vmutex32_unlock(&new_thread_mutex);
 
@@ -285,7 +285,7 @@ void vthread32_finished_handler(uint32_t const rtn_val) {
     vmutex32_unlock(&thread_ring_mutex);
 
     vmutex32_wait_for_lock(&finished_thread_mutex, VMUTEX32_STATE_LOCKED);
-    while (finished_thread != VMEM32_NULL);
+    while (finished_thread != NULL);
     finished_thread = active_thread;
     vmutex32_unlock(&finished_thread_mutex);
 
@@ -308,17 +308,17 @@ void vthread32_switch(void) {
 
     if (!vmutex32_is_locked(&thread_ring_mutex)) {
         // insert the new thread (if any) into the ring
-        if (new_thread != VMEM32_NULL) {
+        if (new_thread != NULL) {
             ++thread_ring_size;
             new_thread->next = active_thread->next;
             active_thread->next = new_thread;
             new_thread->previous = active_thread;
             new_thread->next->previous = new_thread;
-            new_thread = VMEM32_NULL;
+            new_thread = NULL;
         }
 
         // remove the finished thread (if any) from the ring
-        if (finished_thread != VMEM32_NULL && dead_thread == VMEM32_NULL) {
+        if (finished_thread != NULL && dead_thread == NULL) {
             --thread_ring_size;
             if (finished_thread == active_thread) {
                 active_thread = active_thread->next;
@@ -327,7 +327,7 @@ void vthread32_switch(void) {
                 thread_ring = active_thread;
             }
             dead_thread = finished_thread;
-            finished_thread = VMEM32_NULL;
+            finished_thread = NULL;
             dead_thread->previous->next = dead_thread->next;
             dead_thread->next->previous = dead_thread->previous;
         }
