@@ -3,12 +3,7 @@
 
 #include <stdint.h>
 
-inline void write_reg(uint32_t const addr, uint32_t const data) {
-    *((uint32_t volatile *const)addr) = data;
-}
-
-inline uint32_t volatile const read_reg(uint32_t const addr) {
-    return *((uint32_t volatile const *const)addr);
-}
+#define WRITE_REG(A, D)     *((uint32_t volatile *const)(A)) = (D)
+#define READ_REG(A)         *((uint32_t volatile const *const)(A))
 
 #endif

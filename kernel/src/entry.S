@@ -1,3 +1,5 @@
+#include "util.h"
+
 .equ RAM_START_ADDR,    0x40000000
 .equ RAM_END_ADDR,      0x40040000
 
@@ -36,6 +38,13 @@ _entry:
     j       1b
 1:  j       boot
 
+mtip_handler:
+    addi    sp,         sp,         -64
+    SAVE_CALLER     0
+    jal mtip
+    RESTORE_CALLER  0
+    addi    sp,         sp,         64
+    mret
 .section .vector_table
 vectors:
     .align  2
@@ -53,7 +62,7 @@ vectors:
     .align  2
     mret
     .align  2
-    j       vthread32_mtip
+    j mtip_handler  // mtip
     .align  2
     mret
     .align  2
@@ -61,10 +70,11 @@ vectors:
     .align  2
     mret
     .align  2
-    mret
+    mret            // meip
 
     .align  2
 1:  addi    sp,     sp,         -8
+/*
     sw      ra,     0(sp)
     sw      a1,     4(sp)
     csrr    a1,     mcause
@@ -76,3 +86,4 @@ vectors:
     lw      a1,     4(sp)
     addi    sp,     sp,         8
     mret
+*/

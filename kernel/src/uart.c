@@ -1,117 +1,48 @@
-#include <uart.h>
-#include <soc.h>
-#include <common.h>
+#include <soc.h> // TODO - remove
 
-void uart_init(unsigned const baudrate) {
-    write_reg(UART_BASE_ADDR + UART_CPHB_OFFSET, (CLK_FREQ / baudrate) >> 1);
-}
-void uart_flush_rx(void) {
-    while (read_reg(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_RXDAV_MASK) {
-        read_reg(UART_BASE_ADDR + UART_DATA_OFFSET);
-    }
+#include <uart.h>
+#include <common.h>
+#include <cqueue.h>
+
+#define UART_DATA_OFFSET            0
+#define UART_CPHB_OFFSET            4
+#define UART_STATUS_OFFSET          8
+#define UART_INT_EN_OFFSET          12
+#define UART_INT_STATE_OFFSET       16
+//
+#define UART_STATUS_RXDAV_MASK      8
+#define UART_STATUS_RXFULL_MASK     4
+#define UART_STATUS_TXBUSY_MASK     2
+#define UART_STATUS_TXFULL_MASK     1
+
+#define WRITE_REG(A, D)     *((uint32_t volatile *const)(A)) = (D)
+#define READ_REG(A)         *((uint32_t volatile const *const)(A))
+
+cqueue_t rx_queue;
+cqueue_t tx_queue;
+
+void uart_init(unsigned const cphb) {
+    WRITE_REG(UART_BASE_ADDR + UART_CPHB_OFFSET, (uint32_t const)cphb);
+    cqueue_init(&rx_queue);
+    cqueue_init(&tx_queue);
 }
 void uart_putc(char const c) {
-    if (c == '\n') {
-        while (read_reg(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_TXFULL_MASK);
-        write_reg(UART_BASE_ADDR + UART_DATA_OFFSET, '\r');
-    }
-    while (read_reg(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_TXFULL_MASK);
-    write_reg(UART_BASE_ADDR + UART_DATA_OFFSET, (uint32_t const)c);
+    while (cqueue_full(&tx_queue));
+    cqueue_putc(&tx_queue, c);
 }
 char const uart_getc(void) {
-    while ((read_reg(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_RXDAV_MASK) == 0);
-    return (char const)read_reg(UART_BASE_ADDR + UART_DATA_OFFSET);
+    while (cqueue_empty(&rx_queue));
+    return cqueue_getc(&rx_queue);
 }
-void uart_puts(char const* str) {
-    int i;
-
-    for (i = 0; str[i] != '\0'; ++i) {
-        while (read_reg(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_TXFULL_MASK);
-        write_reg(UART_BASE_ADDR + UART_DATA_OFFSET, (uint32_t const)str[i]);
+void uart_flush_tx(void) {
+    while (!cqueue_empty(&tx_queue) &&
+           !(READ_REG(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_TXFULL_MASK)) {
+        WRITE_REG(UART_BASE_ADDR + UART_DATA_OFFSET, (uint32_t const)cqueue_getc(&tx_queue));
     }
 }
-void uart_putx(int const value) {
-}
-
-#include <stdarg.h>
-
-static void print_x(void (*putc)(char const), uint32_t const value) {
-    int i;
-
-    for (i = 7; i >= 0; --i) {
-        putc("0123456789abcdef"[(value >> (i << 2)) & 0xf]);
+void uart_flush_rx(void) {
+    while (!cqueue_full(&rx_queue) &&
+           (READ_REG(UART_BASE_ADDR + UART_STATUS_OFFSET) & UART_STATUS_RXDAV_MASK)) {
+        cqueue_putc(&rx_queue, (char const)READ_REG(UART_BASE_ADDR + UART_DATA_OFFSET));
     }
-}
-static void print_X(void (*putc)(char const), uint32_t const value) {
-    int i;
-
-    for (i = 7; i >= 0; --i) {
-        putc("0123456789ABCDEF"[(value >> (i << 2)) & 0xf]);
-    }
-}
-static void print_u(void (*putc)(char const), unsigned const value) {
-    if (value < 10) {
-        putc("0123456789"[value]);
-        return;
-    }
-    print_u(putc, value / 10);
-    putc("0123456789"[value % 10]);
-}
-static void print_i(void (*putc)(char const), int const value) {
-    if (value < 0) {
-        putc('-');
-        print_u(putc, (unsigned const)(~value + 1));
-    } else {
-        print_u(putc, (unsigned const)value);
-    }
-}
-static void print_s(void (*putc)(char const), char const str[]) {
-    int i;
-
-    for (i = 0; str[i] != '\0'; ++i) {
-        putc(str[i]);
-    }
-}
-
-static void vfprintf(void (*putc)(char const), char const* const fmt, va_list args) {
-    int i;
-
-    int  found;
-    //char pad_value;
-    //int  length;
-
-    found = 0;
-
-    for (i = 0; fmt[i] != '\0'; ++i) {
-        if (found) {
-            //pad_value = fmt[i];
-            switch (fmt[i]) {
-                case 'c': putc(va_arg(args, int const));
-                          break;
-                case 'x': print_x(putc, va_arg(args, uint32_t const));
-                          break;
-                case 'X': print_X(putc, va_arg(args, uint32_t const));
-                          break;
-                case 'u': print_u(putc, va_arg(args, unsigned const));
-                          break;
-                case 'i': print_i(putc, va_arg(args, int const));
-                          break;
-                case 's': print_s(putc, va_arg(args, char const *const));
-                          break;
-                default : putc(fmt[i]);
-                          break;
-            }
-            found = 0;
-        } else if (fmt[i] == '%') {
-            found = 1;
-        } else {
-            putc(fmt[i]);
-        }
-    }
-}
-void printf(char const* const fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(uart_putc, fmt, args);
-    va_end(args);
 }
