@@ -19,6 +19,13 @@ void printf(char const* const fmt, ...) {
 #define TIMER_CTRL_INT_EN_MASK      0x2
 #define TIMER_CTRL_EN_MASK          0x1
 
+uint32_t const syscall(uint32_t arg);
+
+uint32_t const syscall(uint32_t const arg) {
+    printf("%x\n", arg);
+    return 0;
+}
+
 void timer_init(void) {
     WRITE_REG(TIMER0_BASE_ADDR + TIMER_MAX_OFFSET, 25000 - 1);
     WRITE_REG(TIMER0_BASE_ADDR + TIMER_TIME_OFFSET, 0);
@@ -34,6 +41,7 @@ void boot(void) {
 
     printf("MiROS %i\n", 1650);
     printf("MiROS %i\n", 1650);
+    __asm__ volatile ("li a0, 0xab; ecall" ::: "a0", "memory");
 
     while(1) {
         uart_putc(uart_getc());

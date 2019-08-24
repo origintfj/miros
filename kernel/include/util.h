@@ -1,3 +1,17 @@
+.equ EXCP_IAM,  0
+.equ EXCP_IAF,  1
+.equ EXCP_II,   2
+.equ EXCP_BP,   3
+.equ EXCP_LAM,  4
+.equ EXCP_LAF,  5
+.equ EXCP_SAM,  6
+.equ EXCP_SAF,  7
+.equ EXCP_ECU,  8
+.equ EXCP_ECS,  9
+.equ EXCP_ECM,  11
+.equ EXCP_IPF,  12
+.equ EXCP_LPF,  13
+.equ EXCP_SPF,  15
 /*
  * Stack save/restore macros
  */

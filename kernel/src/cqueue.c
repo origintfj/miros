@@ -2,10 +2,12 @@
 
 #define CQUEUE_PTR_MASK     ((CQUEUE_SZ << 1) - 1)
 
+//#define CQUEUE_LOCK_WAIT    while ()
+
 void cqueue_init(cqueue_t *const queue) {
     queue->rd_ptr = 0;
     queue->wr_ptr = 0;
-    vmutex32_init(&(queue->lock));
+    //vmutex32_init(&(queue->lock));
 }
 int volatile const cqueue_empty(cqueue_t const *const queue) {
     return queue->rd_ptr == queue->wr_ptr;

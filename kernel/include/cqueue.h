@@ -7,7 +7,7 @@
 #include <vmutex32.h>
 
 typedef struct {
-    vmutex32_t lock;
+    //vmutex32_t lock;
     unsigned volatile rd_ptr;
     unsigned volatile wr_ptr;
     char volatile buffer[CQUEUE_SZ];
