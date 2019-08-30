@@ -1,3 +1,7 @@
+/*
+ * Exception cause codes
+ */
+
 .equ EXCP_IAM,  0
 .equ EXCP_IAF,  1
 .equ EXCP_II,   2
@@ -12,9 +16,11 @@
 .equ EXCP_IPF,  12
 .equ EXCP_LPF,  13
 .equ EXCP_SPF,  15
+
 /*
  * Stack save/restore macros
  */
+
 .macro SAVE_CALLER offset
     sw      ra,         (\offset + 0)(sp)
     sw      t0,         (\offset + 4)(sp)

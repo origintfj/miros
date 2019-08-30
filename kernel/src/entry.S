@@ -5,11 +5,10 @@
 .section .init
 _entry:
     # load an initial stack pointer
-    blt     t0,         zero,       trap_usi
     li      sp,         RAM_END_ADDR
     addi    sp,         sp,         -4
     csrw    mscratch,   sp
-    addi    sp,         sp,         -1024 // sort the stack out!
+    addi    sp,         sp,         -1024 // sort the stack out! // TODO
     addi    sp,         sp,         -1024 // sort the stack out!
     addi    sp,         sp,         -1024 // sort the stack out!
     # set the m-mode trap vector
